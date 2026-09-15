@@ -1,0 +1,7 @@
+services:
+  dw-playground-pro:
+    image: dw-playground-pro
+    container_name: dw-playground-pro
+    ports:
+      - "8081:8081"
+    restart: unless-stopped

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ============================================================
+         DataWeave Local Playground
+           GET  /               -> the web UI (index.html)
+           GET  /{asset}        -> static files (editor.js / editor.css)
+           POST /api/transform  -> runs a DataWeave script dynamically
+         Everything is served locally; no external requests.
+         ============================================================ -->
+
+    <http:listener-config name="HTTP_Listener_config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <!-- UI flow -->
+    <flow name="ui-flow">
+        <http:listener config-ref="HTTP_Listener_config" path="/" allowedMethods="GET">
+            <http:response statusCode="200">
+                <http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "text/html"
+}]]]></http:headers>
+            </http:response>
+        </http:listener>
+        <set-payload value='#[readUrl("classpath://web/index.html", "text/plain")]'
+                     doc:name="Return index.html" />
+    </flow>
+
+    <!-- Static assets: ONE flow (choice router) serves editor.js and editor.css.
+         The path captures the filename into attributes.uriParams.asset; the
+         response statusCode and Content-Type are expressions, so the single
+         response block can return either file (or a 404). -->
+    <flow name="static-assets-flow">
+        <http:listener config-ref="HTTP_Listener_config" path="/{asset}" allowedMethods="GET" doc:name="/{asset}">
+            <http:response statusCode="#[vars.status default 200]">
+                <http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : vars.ctype default "text/plain"
+}]]]></http:headers>
+            </http:response>
+        </http:listener>
+        <choice>
+            <when expression='#[attributes.uriParams.asset == "editor.js"]'>
+                <set-variable variableName="ctype" value="application/javascript" doc:name="ctype"/>
+                <set-payload value='#[readUrl("classpath://web/editor.js", "text/plain")]' doc:name="editor.js"/>
+            </when>
+            <when expression='#[attributes.uriParams.asset == "editor.css"]'>
+                <set-variable variableName="ctype" value="text/css" doc:name="ctype"/>
+                <set-payload value='#[readUrl("classpath://web/editor.css", "text/plain")]' doc:name="editor.css"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="status" value="#[404]" />
+                <set-payload value="#['Not found']" />
+            </otherwise>
+        </choice>
+    </flow>
+
+    <!-- Transform flow -->
+    <flow name="transform-flow">
+        <http:listener config-ref="HTTP_Listener_config" path="/api/transform" allowedMethods="POST" doc:name="/api/transform">
+            <http:response statusCode="200">
+                <http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "text/plain"
+}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="400">
+                <http:body><![CDATA[#[error.description default "Transform failed"]]]></http:body>
+                <http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "text/plain"
+}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+
+        <!-- fetch() sends Content-Type: application/json, so payload is parsed:
+             payload.script / payload.inputs / payload.outputMimeType -->
+		<!-- Prepare: payload = the "payload" input; params = every OTHER named input (your variables) -->
+<ee:transform doc:name="Prepare Inputs">
+    <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+var pin = ((payload.inputs default []) filter ((i) -> i.name == "payload"))[0]
+---
+if (pin != null) read(pin.content, pin.mimeType default "application/json") else {}]]></ee:set-payload>
+    </ee:message>
+    <ee:variables>
+        <ee:set-variable variableName="script"><![CDATA[%dw 2.0
+output text/plain
+---
+payload.script default ""]]></ee:set-variable>
+        <ee:set-variable variableName="params"><![CDATA[%dw 2.0
+output application/java
+---
+((payload.inputs default []) filter ((i) -> i.name != "payload")) reduce ((i, acc = {}) ->
+    acc ++ { (i.name): read(i.content, i.mimeType default "application/json") }
+)]]></ee:set-variable>
+    </ee:variables>
+</ee:transform>
+
+<!-- Evaluate the user's script; each non-payload input is exposed by its name -->
+<foreach doc:name="For Each" doc:id="f5ae474c-3a8c-416d-b687-bfe3a9a8d29c" collection="#[vars.params]">
+			<set-variable value="#[(payload pluck $)[0]]" doc:name="Set Dynamic Variables" doc:id="4ed7457e-0bfe-4d72-b229-6b604e0f5f3c" variableName="#[(payload pluck $$)[0]]"/>
+		</foreach>
+		<ee:dynamic-evaluate expression="#[vars.script]" doc:name="Dynamic Evaluate">
+</ee:dynamic-evaluate>
+    
+</flow>
+
+</mule>

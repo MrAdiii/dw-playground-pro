@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DataWeave Local Playground</title>
+
+<!-- CodeMirror served locally by this Mule app (no external CDN) -->
+<link rel="stylesheet" href="editor.css">
+
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel-2:#11161d; --border:#232b36;
+    --text:#c9d6e2; --muted:#6b7785; --accent:#45d3c0;
+    --err:#ff6b6b; --ok:#4ade80;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --ui:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg); color:var(--text); font-family:var(--ui);
+       display:flex; flex-direction:column; overflow:hidden}
+
+  header{display:flex; align-items:center; gap:14px; padding:10px 16px;
+         border-bottom:1px solid var(--border); background:var(--panel-2); flex:none}
+  header .logo{font-weight:600; font-size:14px; display:flex; align-items:center; gap:9px}
+  header .logo b{color:var(--accent); font-weight:600}
+
+  .pill{display:inline-flex; align-items:center; gap:7px; font-size:12px;
+        color:var(--muted); padding:4px 10px; border:1px solid var(--border);
+        border-radius:999px; background:var(--panel); font-variant-numeric:tabular-nums}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--muted)}
+  .pill.running .dot{background:var(--accent); animation:pulse 1s ease-in-out infinite}
+  .pill.ok .dot{background:var(--ok)}
+  .pill.error .dot{background:var(--err)}
+  .pill.running{color:var(--accent)} .pill.error{color:var(--err)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  main{flex:1; min-height:0; display:grid;
+       grid-template-columns:1fr 1.2fr 1fr; gap:1px; background:var(--border)}
+  .pane{display:flex; flex-direction:column; min-height:0; background:var(--panel)}
+  .pane-head{display:flex; align-items:center; gap:10px; padding:8px 12px;
+             border-bottom:1px solid var(--border); flex:none; min-height:40px}
+  .pane-head.divider{border-top:1px solid var(--border)}
+  .pane-head .label{font-size:11px; text-transform:uppercase; letter-spacing:.12em;
+                    color:var(--muted); font-weight:600}
+  .pane-head .grow{flex:1}
+  .pane-body{position:relative; min-height:0}
+
+  select{font-family:var(--mono); font-size:12px; color:var(--text);
+         background:var(--panel-2); border:1px solid var(--border);
+         border-radius:6px; padding:4px 8px; cursor:pointer; outline:none}
+  select:focus{border-color:var(--accent)}
+
+  textarea.ed{position:absolute; inset:0; width:100%; height:100%; resize:none;
+              border:0; outline:none; background:transparent; color:var(--text);
+              font-family:var(--mono); font-size:13px; line-height:1.55; padding:10px 12px;
+              tab-size:2; white-space:pre; overflow:auto}
+
+  .CodeMirror{height:100%; font-family:var(--mono); font-size:13px; line-height:1.55; background:transparent}
+  .CodeMirror-gutters{background:var(--panel-2); border-right:1px solid var(--border)}
+  .cm-s-material-darker span.cm-meta{color:#7c8aff}
+  .cm-s-material-darker span.cm-keyword{color:#c792ea}
+  .cm-s-material-darker span.cm-builtin{color:var(--accent)}
+  .cm-s-material-darker span.cm-def{color:#f78c6c; font-weight:600}
+
+  /* vars: mode toggle + form */
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:6px; overflow:hidden}
+  .seg-btn{background:var(--panel-2); color:var(--muted); border:0; font-family:var(--mono);
+           font-size:11px; padding:3px 10px; cursor:pointer}
+  .seg-btn.active{background:var(--accent); color:#06231f; font-weight:600}
+  .vars-form{position:absolute; inset:0; overflow:auto; padding:10px 12px}
+  .vars-json{position:absolute; inset:0}
+  .var-row{display:flex; gap:6px; margin-bottom:6px; align-items:center}
+  .var-row input{min-width:0; background:var(--panel-2); border:1px solid var(--border);
+                 border-radius:6px; color:var(--text); font-family:var(--mono); font-size:12px;
+                 padding:5px 8px; outline:none}
+  .var-row input.k{flex:0 0 34%}
+  .var-row input.v{flex:1}
+  .var-row input:focus{border-color:var(--accent)}
+  .var-row .x{flex:0 0 auto; background:transparent; border:1px solid var(--border); color:var(--muted);
+              border-radius:6px; cursor:pointer; padding:4px 9px; font-size:13px; line-height:1}
+  .var-row .x:hover{color:var(--err); border-color:var(--err)}
+  .add-btn{width:100%; background:transparent; border:1px dashed var(--border); color:var(--muted);
+           border-radius:6px; cursor:pointer; padding:6px 10px; font-family:var(--mono); font-size:12px}
+  .add-btn:hover{border-color:var(--accent); color:var(--accent)}
+
+  .errbox{position:absolute; inset:0; overflow:auto; display:none; background:var(--panel);
+          padding:14px 16px; font-family:var(--mono); font-size:12.5px; line-height:1.6;
+          color:var(--err); white-space:pre-wrap}
+  .errbox.show{display:block}
+  .errbox .err-title{text-transform:uppercase; letter-spacing:.12em; font-size:10px;
+                     color:var(--err); opacity:.7; margin-bottom:8px; font-family:var(--ui); font-weight:600}
+
+  footer{flex:none; padding:6px 16px; border-top:1px solid var(--border);
+         background:var(--panel-2); color:var(--muted); font-family:var(--mono);
+         font-size:11px; display:flex; gap:16px}
+
+  @media (max-width:920px){ main{grid-template-columns:1fr; grid-auto-rows:minmax(160px,1fr)} }
+  @media (prefers-reduced-motion:reduce){ .pill.running .dot{animation:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><b>{ }</b> DataWeave <span style="color:var(--muted)">Local Playground</span></div>
+  <div style="flex:1"></div>
+  <div id="status" class="pill"><span class="dot"></span><span id="status-text">Ready</span></div>
+</header>
+
+<main>
+  <!-- INPUT column: payload (top) + vars (bottom) -->
+  <section class="pane">
+    <div class="pane-head">
+      <span class="label">Input&nbsp;&middot;&nbsp;payload</span>
+      <span class="grow"></span>
+      <select id="in-mime" aria-label="Input format">
+        <option value="application/json">JSON</option>
+        <option value="application/xml">XML</option>
+        <option value="application/csv">CSV</option>
+        <option value="application/yaml">YAML</option>
+        <option value="text/plain">Text</option>
+      </select>
+    </div>
+    <div class="pane-body" style="flex:2"><textarea id="in" class="ed" spellcheck="false"></textarea></div>
+
+    <div class="pane-head divider">
+      <span class="label">Vars</span>
+      <span class="grow"></span>
+      <div class="seg">
+        <button type="button" id="mode-form" class="seg-btn active">Form</button>
+        <button type="button" id="mode-json" class="seg-btn">JSON</button>
+      </div>
+    </div>
+    <div class="pane-body" style="flex:1">
+      <div id="vars-form" class="vars-form">
+        <div id="vars-rows"></div>
+        <button type="button" id="vars-add" class="add-btn">+ Add variable</button>
+      </div>
+      <div id="vars-json" class="vars-json" style="display:none">
+        <textarea id="vars" class="ed" spellcheck="false"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCRIPT -->
+  <section class="pane">
+    <div class="pane-head"><span class="label">Script&nbsp;&middot;&nbsp;DataWeave 2.0</span></div>
+    <div class="pane-body" style="flex:1"><textarea id="script" class="ed" spellcheck="false"></textarea></div>
+  </section>
+
+  <!-- OUTPUT -->
+  <section class="pane">
+    <div class="pane-head">
+      <span class="label">Output</span>
+      <span class="grow"></span>
+      <select id="out-mime" aria-label="Output highlight">
+        <option value="application/json">JSON</option>
+        <option value="application/xml">XML</option>
+        <option value="application/csv">CSV</option>
+        <option value="application/yaml">YAML</option>
+        <option value="text/plain">Text</option>
+      </select>
+    </div>
+    <div class="pane-body" style="flex:1">
+      <textarea id="out" class="ed" spellcheck="false" readonly></textarea>
+      <div id="errbox" class="errbox"><div class="err-title">Error</div><span id="err-text"></span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>POST&nbsp;/api/transform</span>
+  <span>Mule&nbsp;:8081</span>
+  <span id="engine" style="margin-left:auto">live &middot; auto-runs as you type</span>
+</footer>
+
+<script src="editor.js"></script>
+<script>
+(function(){
+  "use strict";
+  var hasCM = !!window.CodeMirror;
+
+  if (hasCM){
+    CodeMirror.defineSimpleMode("dataweave", {
+      start: [
+        {regex: /\/\/.*/, token: "comment"},
+        {regex: /%dw\s+[\d.]+/, token: "meta"},
+        {regex: /"(?:[^\\"]|\\.)*"/, token: "string"},
+        {regex: /'(?:[^\\']|\\.)*'/, token: "string"},
+        {regex: /---/, token: "def"},
+        {regex: /\b(output|input|import|from|var|fun|type|ns|using|do)\b/, token: "keyword"},
+        {regex: /\b(map|mapObject|filter|filterObject|reduce|pluck|groupBy|orderBy|flatten|distinctBy|sizeOf|upper|lower|trim|isEmpty|default|match|case|else|if|unless|otherwise|and|or|not|is|as|null|true|false)\b/, token: "builtin"},
+        {regex: /-?\d+(?:\.\d+)?/, token: "number"},
+        {regex: /[a-zA-Z_$][\w$]*/, token: "variable"}
+      ],
+      meta: {lineComment: "//"}
+    });
+  }
+
+  function modeFor(mime){
+    if (mime.indexOf("json") >= 0) return {name:"javascript", json:true};
+    if (mime.indexOf("xml")  >= 0) return "xml";
+    return "null";
+  }
+
+  function makeEditor(ta, opts){
+    if (hasCM){
+      try{
+        var cm = CodeMirror.fromTextArea(ta, Object.assign(
+          {theme:"material-darker", lineNumbers:true, lineWrapping:true,
+           indentUnit:2, tabSize:2}, opts || {}));
+        return {getValue:function(){return cm.getValue();},
+                setValue:function(v){cm.setValue(v);},
+                onChange:function(fn){cm.on("change", fn);},
+                setMode:function(m){cm.setOption("mode", m);},
+                refresh:function(){cm.refresh();}};
+      }catch(e){ /* fall through */ }
+    }
+    return {getValue:function(){return ta.value;},
+            setValue:function(v){ta.value=v;},
+            onChange:function(fn){ta.addEventListener("input", fn);},
+            setMode:function(){},
+            refresh:function(){}};
+  }
+
+  var inMime  = document.getElementById("in-mime");
+  var outMime = document.getElementById("out-mime");
+
+  var edIn   = makeEditor(document.getElementById("in"),     {mode: modeFor(inMime.value)});
+  var edVars = makeEditor(document.getElementById("vars"),   {mode: {name:"javascript", json:true}});
+  var edSc   = makeEditor(document.getElementById("script"), {mode: hasCM ? "dataweave" : null});
+  var edOut  = makeEditor(document.getElementById("out"),    {mode: modeFor(outMime.value), readOnly:true});
+
+  if (!hasCM) document.getElementById("engine").textContent = "live · plain editor (CodeMirror unavailable)";
+
+  // ---------- vars: form <-> JSON ----------
+  var mode = "form";
+  var rowsEl = document.getElementById("vars-rows");
+  var formEl = document.getElementById("vars-form");
+  var jsonEl = document.getElementById("vars-json");
+  var bForm  = document.getElementById("mode-form");
+  var bJson  = document.getElementById("mode-json");
+
+  function parseVal(raw){
+    var t = (raw == null ? "" : raw).trim();
+    if (t === "") return null;
+    try { return JSON.parse(t); } catch(e){ return t; }  // bare text -> string
+  }
+  function addRow(name, value){
+    var row = document.createElement("div"); row.className = "var-row";
+    var k = document.createElement("input"); k.className = "k"; k.placeholder = "name";  k.value = name  || "";
+    var v = document.createElement("input"); v.className = "v"; v.placeholder = "value (JSON)"; v.value = (value == null ? "" : value);
+    var x = document.createElement("button"); x.type = "button"; x.className = "x"; x.textContent = "\u00d7"; x.title = "remove";
+    x.addEventListener("click", function(){ row.remove(); schedule(); });
+    row.appendChild(k); row.appendChild(v); row.appendChild(x);
+    rowsEl.appendChild(row);
+  }
+  function readRows(){
+    return Array.prototype.map.call(rowsEl.querySelectorAll(".var-row"), function(r){
+      return { name: r.querySelector(".k").value, value: r.querySelector(".v").value };
+    });
+  }
+  function buildFormFromObject(o){
+    rowsEl.innerHTML = "";
+    Object.keys(o || {}).forEach(function(k){ addRow(k, JSON.stringify(o[k])); });
+    if (!rowsEl.children.length) addRow("", "");
+  }
+  function currentVarsObject(){
+    if (mode === "form"){
+      var o = {};
+      readRows().forEach(function(r){
+        var name = (r.name || "").trim();
+        if (name === "") return;
+        o[name] = parseVal(r.value);
+      });
+      return o;
+    }
+    var raw = edVars.getValue().trim();
+    if (!raw) return {};
+    try { var v = JSON.parse(raw); return (v && typeof v === "object" && !Array.isArray(v)) ? v : {}; }
+    catch(e){ return {}; }
+  }
+  function extraInputs(){
+    var o = currentVarsObject();
+    return Object.keys(o).map(function(k){
+      return { name:k, mimeType:"application/json", content: JSON.stringify(o[k]) };
+    });
+  }
+  function switchTo(m){
+    if (m === mode) return;
+    if (m === "json"){
+      edVars.setValue(JSON.stringify(currentVarsObject(), null, 2));
+      formEl.style.display = "none"; jsonEl.style.display = "block";
+      bForm.classList.remove("active"); bJson.classList.add("active");
+      mode = "json"; edVars.refresh();
+    } else {
+      buildFormFromObject(currentVarsObject());
+      jsonEl.style.display = "none"; formEl.style.display = "block";
+      bJson.classList.remove("active"); bForm.classList.add("active");
+      mode = "form";
+    }
+    run();
+  }
+
+  // ---------- status / output ----------
+  var pill = document.getElementById("status");
+  var statusText = document.getElementById("status-text");
+  function setStatus(s){ pill.className="pill "+(s||""); statusText.textContent={running:"Running…",ok:"OK",error:"Error"}[s]||"Ready"; }
+
+  var errbox = document.getElementById("errbox");
+  var errText = document.getElementById("err-text");
+  function showOutput(t){ errbox.classList.remove("show"); edOut.setMode(modeFor(outMime.value)); edOut.setValue(t); }
+  function showError(t){ errText.textContent=t; errbox.classList.add("show"); }
+
+  // ---------- link output dropdown <-> script's `output` directive ----------
+  function readScriptOutputType(){
+    var m = edSc.getValue().match(/^\s*output\s+(\S+)/m);
+    return m ? m[1] : null;
+  }
+  function setScriptOutputType(mime){
+    var src = edSc.getValue();
+    var re = /^(\s*output\s+)(\S+)(.*)$/m;        // preserve any writer options after the mime
+    var next;
+    if (re.test(src)){
+      next = src.replace(re, function(_, pre, oldMime, rest){ return pre + mime + rest; });
+    } else if (/^%dw\s+[\d.]+/m.test(src)){
+      next = src.replace(/^(%dw\s+[\d.]+.*)$/m, function(m){ return m + "\noutput " + mime; });
+    } else {
+      next = "%dw 2.0\noutput " + mime + "\n---\n" + src;
+    }
+    if (next !== src) edSc.setValue(next);
+  }
+  function syncDropdownFromScript(){
+    var t = readScriptOutputType();
+    if (t && t !== outMime.value &&
+        Array.prototype.some.call(outMime.options, function(o){ return o.value === t; })){
+      outMime.value = t;   // programmatic; does not fire 'change'
+    }
+  }
+
+  // ---------- transform (live, debounced, stale-safe) ----------
+  var timer=null, controller=null;
+  function schedule(){ clearTimeout(timer); setStatus("running"); timer=setTimeout(run,400); }
+  async function run(){
+    clearTimeout(timer);
+    if (controller) controller.abort();
+    controller = new AbortController();
+    setStatus("running");
+    syncDropdownFromScript();
+    var body = {
+      script: edSc.getValue(),
+      inputs: [{ name:"payload", mimeType: inMime.value, content: edIn.getValue() }].concat(extraInputs()),
+      outputMimeType: outMime.value
+    };
+    try{
+      var res = await fetch("/api/transform", {method:"POST",
+        headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), signal:controller.signal});
+      var text = await res.text();
+      if (res.ok){ showOutput(text); setStatus("ok"); } else { showError(text); setStatus("error"); }
+    }catch(e){
+      if (e.name === "AbortError") return;
+      showError("Could not reach the Mule app on :8081.\n" + e.message); setStatus("error");
+    }
+  }
+
+  // ---------- starter content ----------
+  edIn.setValue('{\n  "message": "hello",\n  "items": [1, 2, 3]\n}');
+  edVars.setValue('{\n  "factor": 10\n}');
+  buildFormFromObject({ factor: 10 });
+  edSc.setValue('%dw 2.0\noutput application/json\n---\n{\n  greeting: payload.message,\n  count: sizeOf(payload.items),\n  scaled: payload.items map ((n) -> n * vars.factor)\n}');
+
+  // ---------- wiring ----------
+  edIn.onChange(schedule);
+  edVars.onChange(schedule);
+  edSc.onChange(schedule);
+  rowsEl.addEventListener("input", schedule);
+  document.getElementById("vars-add").addEventListener("click", function(){ addRow("", ""); });
+  bForm.addEventListener("click", function(){ switchTo("form"); });
+  bJson.addEventListener("click", function(){ switchTo("json"); });
+  inMime.addEventListener("change", function(){ edIn.setMode(modeFor(inMime.value)); run(); });
+  outMime.addEventListener("change", function(){ setScriptOutputType(outMime.value); run(); });
+
+  setTimeout(function(){ edIn.refresh(); edSc.refresh(); edOut.refresh(); run(); }, 60);
+})();
+</script>
+</body>
+</html>
