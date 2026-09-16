@@ -24,4 +24,4 @@ docker build -t dw-playground-pro .
 echo ""
 echo "Image built: dw-playground-pro"
 echo "Run it with:  docker-compose up -d"
-echo "Open:         http://localhost:8081"
+echo "Open:         http://localhost:8091"

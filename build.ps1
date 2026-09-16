@@ -24,4 +24,4 @@ if (-not $?) { exit 1 }
 Write-Host ""
 Write-Host "Image built: dw-playground-pro"
 Write-Host "Run it with:  docker-compose up -d"
-Write-Host "Open:         http://localhost:8081"
+Write-Host "Open:         http://localhost:8091"

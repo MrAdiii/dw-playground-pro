@@ -3,5 +3,12 @@ services:
     image: dw-playground-pro
     container_name: dw-playground-pro
     ports:
-      - "8081:8081"
+      - "8091:8081"
     restart: unless-stopped
+    environment:
+      # Heap size — defaults are tuned small for a local, single-user playground.
+      # Raise these if running for multiple users or in a shared/production-like
+      # setting; no image rebuild needed, just edit and `docker-compose up -d`.
+      # See README.md "Memory configuration" for details.
+      MULE_HEAP_INIT_MB: "128"
+      MULE_HEAP_MAX_MB: "384"

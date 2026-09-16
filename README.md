@@ -29,7 +29,7 @@ Studio bundles the EE runtime — no separate download needed.
 mvn clean package
 ```
 
-Upload `target/dw-playground-pro-1.0.0-SNAPSHOT-mule-application.jar` to Runtime
+Upload `target/dw-playground-pro-1.0.0-mule-application.jar` to Runtime
 Manager as a new application and configure the HTTP port to match your environment.
 
 ---
@@ -87,7 +87,7 @@ The script: validates the runtime → `mvn clean package` → copies jar to `app
 docker-compose up -d
 ```
 
-Open **http://localhost:8081**.
+Open **http://localhost:8091**.
 
 To stop:
 ```bash
@@ -123,8 +123,88 @@ docker pull your-registry.com/dw-playground-pro:1.0
 docker-compose up -d
 ```
 
-> Do not publish the image to a public registry. See the legal notice at the top
-> of this file.
+---
+
+## Docker image internals
+
+The image is trimmed down from a stock Mule runtime install in a few ways.
+None of this modifies the `mule-runtime/` folder on disk — everything here
+happens to a copy inside the image during `docker build`, so re-extracting a
+fresh runtime archive never loses any of it.
+
+### Why `eclipse-temurin:17-jre-jammy` as the base image
+
+The image is built directly on `eclipse-temurin:17-jre-jammy`. A multi-stage
+build that copies just the JRE onto a bare `ubuntu:22.04` base (dropping the
+`curl`/`wget`/`gnupg`/`fontconfig`/`p11-kit` packages Adoptium's own build
+needs to fetch/verify the JRE, but Mule never touches at runtime) was tried
+and measured — it only saved ~27MB (805MB vs 778MB), which isn't worth the
+extra Dockerfile complexity and an additional base image to track for
+security updates.
+
+**Why not Alpine?** Alpine uses `musl` libc instead of `glibc`. Mule's native
+components (the Tanuki process wrapper, JNI libraries) are built against
+`glibc` and fail to resolve their shared-library dependencies under `musl` —
+this was tested and confirmed broken. Any base image swap must stay glibc-based
+(Debian/Ubuntu-family); a true from-scratch/distroless image is possible in
+principle but would need Mule's shell-script launcher (`bin/mule`) replaced or
+a shell-including distroless variant, which hasn't been validated.
+
+### What `.dockerignore` excludes, and why
+
+`app.xml` only uses `http:listener` and DataWeave (`ee:transform`,
+`dynamic-evaluate`) — no SOAP, OAuth, or API Manager policies. `.dockerignore`
+excludes the parts of the vendor runtime this app never loads:
+
+| Excluded | Size | Reason |
+|---|---|---|
+| `mule-runtime/services/mule-service-soap-*` | ~35 MB | No SOAP/WSC connector used |
+| `mule-runtime/services/mule-service-oauth-ee-*` | ~3 MB | No OAuth-based connector used |
+| `mule-runtime/services/api-gateway-*` | negligible | No API Manager policies applied |
+| `mule-runtime/tools/agent-setup-*.jar` | ~109 MB | Anypoint Monitoring agent installer — only needed if registered to Anypoint Platform |
+| `mule-runtime/logs/*`, `mule_ee.pid`, `mule_ee.status*` | small, grows over time | Stale artifacts from local test runs, never meant for the image |
+
+Services actually required and kept: `mule-service-http-ee` (the HTTP
+listener), `mule-service-weave-ee` (DataWeave), `mule-service-scheduler`
+(core thread-pool service used internally by the runtime engine, not just
+user-facing Scheduler components).
+
+### Memory configuration
+
+The vendor `wrapper.conf` defaults to a fixed 1024MB/1024MB heap with
+`-XX:+AlwaysPreTouch`, which forces the *entire* 1GB to be committed at
+startup regardless of load. That's a reasonable production default, but far
+more than a local, single-user playground needs — it showed up as a flat
+1.3GB memory footprint even when idle.
+
+The image ships with a smaller default instead: **128MB initial / 384MB max
+heap, with `AlwaysPreTouch` disabled** so heap is committed on demand rather
+than all at once. Idle footprint is ~375-450MB; a large transform (tested up
+to a 35MB / 300k-object payload) peaks around 750-820MB and stays there until
+the container restarts — this is normal JVM behavior (thread pools, JIT code
+cache, and Metaspace grown to handle the load aren't garbage-collectible, so
+they aren't released back to the OS by GC tuning; only a process restart
+fully resets it).
+
+This is applied without editing `mule-runtime/conf/wrapper.conf` on disk: the
+Dockerfile patches the copy inside the image so `wrapper.java.initmemory` and
+`wrapper.java.maxmemory` become `%MULE_HEAP_INIT_MB%` / `%MULE_HEAP_MAX_MB%`
+tokens — Mule's own Tanuki wrapper already resolves `%VARNAME%` tokens from
+environment variables (it's how `%MULE_HOME%` works today), so these resolve
+from the container's environment at startup.
+
+**To change the heap size for multiple users or a production-like setting,
+no rebuild needed** — just edit the `environment:` block in
+`docker-compose.yml` (or pass `-e` to `docker run`) and restart:
+
+```yaml
+environment:
+  MULE_HEAP_INIT_MB: "512"
+  MULE_HEAP_MAX_MB: "2048"
+```
+
+To change the image's *built-in default* instead, pass `--build-arg` at
+build time (`docker build --build-arg MULE_HEAP_MAX_MB=1024 ...`).
 
 ---
 
