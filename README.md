@@ -96,6 +96,80 @@ docker-compose down
 
 ---
 
+### Option 4 — Expose to the web (Cloudflare Tunnel)
+
+If you want to share your running playground with someone outside your network
+without opening firewall ports, use the included `docker-compose.cloudflared.yml`
+overlay. It adds a `cloudflared` sidecar that creates a public HTTPS tunnel to
+the playground on port 8091.
+
+#### Prerequisites
+
+- The playground container must already be running (`docker-compose up -d`)
+- Docker (same requirement as Option 3)
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up) — **only needed for a persistent URL**; anonymous ephemeral tunnels require no account
+
+#### Start with the tunnel
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
+```
+
+The `cloudflared` container waits until the playground is healthy on port 8091
+before opening the tunnel, so order doesn't matter.
+
+#### Find the tunnel URL
+
+The auto-generated public URL is printed in the `cloudflared` container logs:
+
+```bash
+docker logs cloudflared
+```
+
+Look for a line like:
+
+```
+INF +--------------------------------------------------------------------------------------------+
+INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+INF |  https://example-words-here.trycloudflare.com                                              |
+INF +--------------------------------------------------------------------------------------------+
+```
+
+Copy that URL and share it — it proxies directly to your local playground over HTTPS.
+
+> **Note:** Quick (ephemeral) tunnel URLs are randomly generated and change every
+> time the `cloudflared` container restarts. They also expire after a period of
+> inactivity.
+
+#### Persistent URL (named tunnel)
+
+To keep the same URL across restarts, configure a
+[named Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/):
+
+1. Create a tunnel in the [Cloudflare Zero Trust dashboard](https://one.dash.cloudflare.com/) and copy its token.
+2. Edit `docker-compose.cloudflared.yml` — replace the `entrypoint` block with:
+
+```yaml
+entrypoint: cloudflared tunnel --no-autoupdate run --token YOUR_TUNNEL_TOKEN
+```
+
+3. Restart the sidecar:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d cloudflared
+```
+
+Your playground will be reachable at the hostname you configured in the dashboard,
+on a URL that never changes.
+
+#### Stop the tunnel only
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop cloudflared
+```
+
+---
+
 ## Sharing the image
 
 ### Without a registry — export to a file
@@ -255,6 +329,7 @@ The editor uses CodeMirror 5.65.16 (MIT), bundled locally as `editor.js` and
 dw-playground-pro/
 ├── Dockerfile
 ├── docker-compose.yml
+├── docker-compose.cloudflared.yml  ← optional Cloudflare Tunnel sidecar
 ├── build.sh / build.ps1
 ├── pom.xml
 ├── mule-artifact.json
