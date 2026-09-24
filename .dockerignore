@@ -1,0 +1,22 @@
+# Not used by this app (no SOAP/WSC or OAuth connectors, no API Manager policies)
+mule-runtime/services/mule-service-soap-*
+mule-runtime/services/mule-service-oauth-ee-*
+mule-runtime/services/api-gateway-*
+
+# Anypoint Monitoring agent installer — only needed if registering with Anypoint Platform
+mule-runtime/tools/agent-setup-*.jar
+
+# Optional: MuleSoft support diagnostic bundle tooling (uncomment to also exclude, ~2.5MB)
+# mule-runtime/server-plugins/mule-troubleshooting-plugin-*
+# mule-runtime/tools/mule-troubleshooting-plugin-client-*.jar
+
+# Stale local run artifacts — never belong in the image
+mule-runtime/logs/*
+mule-runtime/mule_ee.pid
+mule-runtime/mule_ee.status
+mule-runtime/mule_ee.java.status
+
+# Other local-only dirs not needed in the image
+.git
+.gitignore
+target
