@@ -89,14 +89,14 @@ The script: validates the runtime → `mvn clean package` → copies jar to `app
 #### Step 4 — Run
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Open **http://localhost:8091**.
 
 To stop:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -110,14 +110,14 @@ the playground on port 8091.
 
 #### Prerequisites
 
-- The playground container must already be running (`docker-compose up -d`)
+- The playground container must already be running (`docker compose up -d`)
 - Docker (same requirement as Option 3)
 - A [Cloudflare account](https://dash.cloudflare.com/sign-up) — **only needed for a persistent URL**; anonymous ephemeral tunnels require no account
 
 #### Start with the tunnel
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
 ```
 
 The `cloudflared` container waits until the playground is healthy on port 8091
@@ -161,7 +161,7 @@ entrypoint: cloudflared tunnel --no-autoupdate run --token YOUR_TUNNEL_TOKEN
 3. Restart the sidecar:
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d cloudflared
+docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d cloudflared
 ```
 
 Your playground will be reachable at the hostname you configured in the dashboard,
@@ -170,7 +170,7 @@ on a URL that never changes.
 #### Stop the tunnel only
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop cloudflared
+docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop cloudflared
 ```
 
 ---
@@ -185,7 +185,7 @@ docker save dw-playground-pro | gzip > dw-playground-pro.tar.gz
 
 # On another machine: import and run
 docker load < dw-playground-pro.tar.gz
-docker-compose up -d
+docker compose up -d
 ```
 
 Send the `.tar.gz` over Teams, a shared drive, or any file transfer. The file
@@ -199,7 +199,7 @@ docker push your-registry.com/dw-playground-pro:1.0
 
 # On another machine
 docker pull your-registry.com/dw-playground-pro:1.0
-docker-compose up -d
+docker compose up -d
 ```
 
 ---
