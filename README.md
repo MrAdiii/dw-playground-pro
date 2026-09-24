@@ -120,9 +120,6 @@ the playground on port 8091.
 docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
 ```
 
-The `cloudflared` container waits until the playground is healthy on port 8091
-before opening the tunnel, so order doesn't matter.
-
 #### Find the tunnel URL
 
 The auto-generated public URL is printed in the `cloudflared` container logs:
