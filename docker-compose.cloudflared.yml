@@ -2,14 +2,7 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
-    entrypoint: >
-      sh -c '
-      until wget -q -O- http://host.docker.internal:8091 >/dev/null 2>&1;
-      do echo "Waiting for dw-playground-pro on 8091...";
-      sleep 3;
-      done;
-      cloudflared tunnel --no-autoupdate --url http://host.docker.internal:8091
-      '
+    command: tunnel --no-autoupdate --url http://host.docker.internal:8091
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
