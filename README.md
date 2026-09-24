@@ -46,7 +46,7 @@ Manager as a new application and configure the HTTP port to match your environme
 
 #### Step 1 — Obtain the Mule Runtime
 
-Download the **Mule Standalone Runtime** from [mulesoft.com/download](https://www.mulesoft.com/lp/dl/mule-esb-enterprise).
+Download the **Mule Standalone Runtime** from [mulesoft.com/download](https://www.mulesoft.com/lp/dl/mule-esb-enterprise). (Developed on v4.12.2)
 No license file is required for local use — the runtime starts and runs transforms
 without one.
 
