@@ -72,6 +72,11 @@ Leave `license/` empty — no license file is needed for local use.
 chmod +x build.sh
 ./build.sh
 ```
+If needed install jdk & maven
+```bash
+sudo apt update
+sudo apt install -y openjdk-17-jdk maven
+```
 
 **Windows (PowerShell)**
 ```powershell
