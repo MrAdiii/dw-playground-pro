@@ -16,7 +16,8 @@ cd "$ROOT_DIR"
 mvn clean package
 
 echo "==> Copying jar to apps/..."
-cp target/*-mule-application.jar apps/dw-playground-pro.jar
+mkdir -p "$ROOT_DIR/apps"
+cp target/*-mule-application.jar "$ROOT_DIR/apps/dw-playground-pro.jar"
 
 echo "==> Building Docker image..."
 docker build -t dw-playground-pro .
