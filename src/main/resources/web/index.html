@@ -2443,13 +2443,22 @@
   // 10. TRANSFORMATION RUNNER & LIVE/MANUAL MODE
   // ==========================================
   var timer = null, controller = null;
-  var isLiveMode = true; // default on (live mode)
+  var savedLiveMode = null;
+  try {
+    savedLiveMode = localStorage.getItem("dw_live_mode");
+  } catch(e) {}
+  var isLiveMode = savedLiveMode !== null ? (savedLiveMode === "true") : true; // default true (live) if not set
   var btnRun = document.getElementById("btn-run");
   var modeToggle = document.getElementById("mode-toggle");
   var modeText = document.getElementById("mode-text");
 
-  function setLiveMode(live, triggerRun) {
+  function setLiveMode(live, triggerRun, persist) {
     isLiveMode = !!live;
+    if (persist !== false) {
+      try {
+        localStorage.setItem("dw_live_mode", isLiveMode ? "true" : "false");
+      } catch(e) {}
+    }
     if (isLiveMode) {
       if (modeToggle) {
         modeToggle.classList.add("is-live");
@@ -2474,7 +2483,7 @@
   if (modeToggle) {
     modeToggle.addEventListener("click", function(e){
       e.stopPropagation();
-      setLiveMode(!isLiveMode, true);
+      setLiveMode(!isLiveMode, true, true);
     });
   }
 
@@ -2599,7 +2608,7 @@
   setupVarsToggle();
   setupCollapsiblePanes();
   syncFormatButtonVisibility();
-  setLiveMode(true);
+  setLiveMode(isLiveMode, false, false);
 
   setTimeout(function(){
     refreshAllEditors();
