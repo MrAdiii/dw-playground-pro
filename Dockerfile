@@ -31,7 +31,8 @@ ARG MULE_HEAP_MAX_MB=384
 ENV MULE_HEAP_INIT_MB=${MULE_HEAP_INIT_MB}
 ENV MULE_HEAP_MAX_MB=${MULE_HEAP_MAX_MB}
 
-RUN sed -i \
+RUN chmod -R +x /opt/mule/bin /opt/mule/lib/boot/tanuki/exec && \
+    sed -i \
         -e 's/^wrapper\.java\.initmemory=.*/wrapper.java.initmemory=%MULE_HEAP_INIT_MB%/' \
         -e 's/^wrapper\.java\.maxmemory=.*/wrapper.java.maxmemory=%MULE_HEAP_MAX_MB%/' \
         -e 's/^wrapper\.java\.additional\.9=-XX:+AlwaysPreTouch/#wrapper.java.additional.9=-XX:+AlwaysPreTouch/' \
