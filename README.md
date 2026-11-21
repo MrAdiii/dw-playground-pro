@@ -3,9 +3,10 @@
 A self-hosted DataWeave 2.0 playground built on Mule 4. Unlike the official
 [DataWeave Playground](https://dataweave.mulesoft.com/learn/dataweave), this one:
 
+- **Intelligent Autocomplete & IntelliSense** — rich DataWeave 2.0 autocomplete for core functions, directives, MIME types, and live input variables (`Ctrl+Space` or auto-trigger)
 - **Handles large payloads** — no browser-side size cap; your data stays local
 - **Supports named variables** — send multiple named inputs alongside `payload`
-- **Works offline / air-gapped** — the CodeMirror editor is bundled; zero CDN calls
+- **Works offline / air-gapped** — CodeMirror editor and autocomplete engine are bundled; zero CDN calls
 - **Self-contained Docker image** — build once, run or share anywhere
 
 ---
@@ -377,10 +378,12 @@ Every `inputs` entry with `name != "payload"` becomes a DataWeave variable
 accessible by name in your script. Add as many as you need — no backend changes
 required.
 
-### CodeMirror (optional)
+### CodeMirror & Autocomplete (optional)
 
 The editor uses CodeMirror 5.65.16 (MIT), bundled locally as `editor.js` and
-`editor.css` and served by the `static-assets-flow` in `app.xml`. To use plain
+`editor.css`, complemented by `autocomplete.js` for client-side DataWeave 2.0
+IntelliSense (keywords, core library functions, MIME types, directives, and live variable suggestions).
+These static assets are served by the `static-assets-flow` in `app.xml`. To use plain
 `<textarea>` editors instead, comment out `static-assets-flow` in
 `src/main/mule/app.xml` — the UI falls back automatically.
 
@@ -392,6 +395,7 @@ The editor uses CodeMirror 5.65.16 (MIT), bundled locally as `editor.js` and
 |--------|------|-------------|
 | `GET` | `/` | Web UI |
 | `GET` | `/editor.js` | CodeMirror bundle |
+| `GET` | `/autocomplete.js` | DataWeave 2.0 Autocomplete Engine |
 | `GET` | `/editor.css` | CodeMirror styles |
 | `POST` | `/api/transform` | Runs a DataWeave script; returns output as plain text or `400` on error |
 
@@ -413,7 +417,7 @@ dw-playground-pro/
 ├── pom.xml
 ├── mule-artifact.json
 ├── src/main/mule/app.xml
-├── src/main/resources/web/   (index.html, editor.js, editor.css)
+├── src/main/resources/web/   (index.html, editor.js, autocomplete.js, editor.css)
 ├── apps/                     ← jar copied here by build script (gitignored)
 ├── license/                  ← place .lic here for EE (gitignored)
 └── mule-runtime/             ← extract Mule runtime here (gitignored)

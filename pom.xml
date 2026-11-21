@@ -9,9 +9,9 @@
 
 	<name>dw-playground-pro</name>
     <description>
-        A self-hosted DataWeave playground supporting large payloads and 
-        UI-driven variable input — built to overcome the payload size 
-        limitations of the official online DataWeave playground.
+        A self-hosted DataWeave playground supporting intelligent autocomplete,
+        large payloads, and UI-driven variable input — built to overcome the
+        payload size limitations of the official online DataWeave playground.
     </description>
 
 	<properties>

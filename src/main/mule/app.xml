@@ -12,7 +12,7 @@
     <!-- ============================================================
          DataWeave Local Playground
            GET  /               -> the web UI (index.html)
-           GET  /{asset}        -> static files (editor.js / editor.css)
+           GET  /{asset}        -> static files (editor.js / autocomplete.js / editor.css)
            POST /api/transform  -> runs a DataWeave script dynamically
          Everything is served locally; no external requests.
          ============================================================ -->
