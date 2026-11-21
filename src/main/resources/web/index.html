@@ -546,6 +546,13 @@
   .cm-s-dw-light .cm-variable {
     color: #1e293b;
   }
+  .cm-s-dw-light .cm-variable-2 {
+    color: #d97706;
+    font-weight: 500;
+  }
+  .cm-s-dw-light .cm-qualifier {
+    color: #6366f1;
+  }
 
   /* Dark Theme tweaks */
   .cm-s-material-darker.CodeMirror {
@@ -559,6 +566,8 @@
   .cm-s-material-darker span.cm-keyword { color: #c084fc; font-weight: 600; }
   .cm-s-material-darker span.cm-builtin { color: var(--accent); font-weight: 500; }
   .cm-s-material-darker span.cm-def { color: #fb923c; font-weight: 600; }
+  .cm-s-material-darker span.cm-variable-2 { color: #fbbf24; font-weight: 500; }
+  .cm-s-material-darker span.cm-qualifier { color: #818cf8; }
 
   /* Vars Section Form & JSON */
   .seg {
@@ -1110,7 +1119,12 @@
         {regex: /'(?:[^\\']|\\.)*'/, token: "string"},
         {regex: /---/, token: "def"},
         {regex: /\b(output|input|import|from|var|fun|type|ns|using|do)\b/, token: "keyword"},
-        {regex: /\b(map|mapObject|filter|filterObject|reduce|pluck|groupBy|orderBy|flatten|distinctBy|sizeOf|upper|lower|trim|isEmpty|default|match|case|else|if|unless|otherwise|and|or|not|is|as|null|true|false)\b/, token: "builtin"},
+        {regex: /\b(default|match|case|else|if|unless|otherwise|and|or|not|is|as|null|true|false|update)\b/, token: "keyword"},
+        {regex: /\b(map|mapObject|filter|filterObject|reduce|pluck|groupBy|orderBy|flatten|distinctBy|sizeOf|upper|lower|trim|isEmpty|isBlank|contains|find|splitBy|joinBy|indexOf|lastIndexOf|slice|take|drop|takeWhile|dropWhile|zip|unzip|entriesOf|keysOf|valuesOf|namesOf|sum|avg|min|max|minBy|maxBy|firstWith|partition|divideBy|countBy|some|every|capitalize|camelize|dasherize|underscore|pluralize|singularize|ordinalize|startsWith|endsWith|scan|replace|matches|repeat|padStart|padEnd|abs|ceil|floor|round|sqrt|mod|pow|log|random|randomInt|typeOf|now|uuid|read|readUrl|write|mergeWith|collapse|characterCodeAt|fromCharCode|isAlpha|isAlphanumeric|isDigits|isLowerCase|isUpperCase|isNumeric|isWhitespace|leftPad|rightPad|wrapWith|unwrap|words|substring|substringBefore|substringAfter|substringBeforeLast|substringAfterLast|entrySet|everyEntry|keySet|nameSet|someEntry|valueSet|fromHex|fromRadixNumber|toHex|toRadixNumber|days|hours|millis|minutes|months|nanos|seconds|years|period|today|yesterday|tomorrow|atBeginningOfDay|atBeginningOfMonth|atBeginningOfWeek|atBeginningOfYear|fromBase64|toBase64|encodeURI|encodeURIComponent|decodeURI|decodeURIComponent|parseURI|MD5|SHA1|HMACBinary|HMACWith|diff|toBinary|toBoolean|toDate|toDateTime|toLocalDateTime|toLocale|toNumber|toPeriod|toString|toTime|toTimeZone|toUri|acos|asin|atan|atan2|cos|cosh|exp|log10|sin|sinh|tan|tanh|toDegrees|toRadians|currentMilliseconds|duration|time|envVar|envVars)\b/, token: "builtin"},
+        {regex: /[a-zA-Z_$][\w$]*(?=\s*\()/, token: "builtin"},
+        {regex: /dw(?:::[a-zA-Z0-9_$]+)+/, token: "qualifier"},
+        {regex: /\b(payload|vars|attributes|message|error)\b/, token: "variable-2"},
+        {regex: /\$\$?\$?/, token: "variable-2"},
         {regex: /-?\d+(?:\.\d+)?/, token: "number"},
         {regex: /[a-zA-Z_$][\w$]*/, token: "variable"}
       ],
