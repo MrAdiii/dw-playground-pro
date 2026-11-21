@@ -138,30 +138,39 @@
     align-items: center;
     gap: 10px;
     font-weight: 700;
-    font-size: 14.5px;
-    letter-spacing: -0.01em;
     user-select: none;
   }
   .brand-logo {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
+    flex-shrink: 0;
     border-radius: 7px;
     background: var(--accent-subtle);
     color: var(--accent);
     border: 1px solid var(--accent);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .brand-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .brand-title {
     color: var(--text);
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     white-space: nowrap;
   }
   .brand-badge {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--accent);
     background: var(--accent-subtle);
@@ -347,10 +356,10 @@
     opacity: 0.35;
     transition: all 0.2s ease;
   }
-  .resizer-sub:hover, .resizer-sub.dragging {
+  .resizer-sub.dragging {
     background: var(--resizer-hover);
   }
-  .resizer-sub:hover .resizer-grip-sub, .resizer-sub.dragging .resizer-grip-sub {
+  .resizer-sub.dragging .resizer-grip-sub {
     opacity: 1;
     background: #ffffff;
     width: 44px;
@@ -384,13 +393,49 @@
     opacity: 0.35;
     transition: all 0.2s ease;
   }
-  .resizer:hover, .resizer.dragging {
+  .resizer.dragging {
     background: var(--resizer-hover);
   }
-  .resizer:hover .resizer-grip, .resizer.dragging .resizer-grip {
+  .resizer.dragging .resizer-grip {
     opacity: 1;
     background: #ffffff;
     height: 38px;
+  }
+
+  @media (hover: hover) {
+    .resizer-sub:hover {
+      background: var(--resizer-hover);
+    }
+    .resizer-sub:hover .resizer-grip-sub {
+      opacity: 1;
+      background: #ffffff;
+      width: 44px;
+    }
+    .resizer:hover {
+      background: var(--resizer-hover);
+    }
+    .resizer:hover .resizer-grip {
+      opacity: 1;
+      background: #ffffff;
+      height: 38px;
+    }
+  }
+
+  /* Header Error Badge */
+  .badge-error {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--err);
+    background: var(--err-bg);
+    border: 1px solid var(--err);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: system-ui, -apple-system, sans-serif;
   }
 
   /* Pane Headers */
@@ -777,33 +822,94 @@
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
-    min-height: 100px !important;
     flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-height: 140px !important;
+    height: auto !important;
+    transition: flex 0.2s ease, min-height 0.2s ease, height 0.2s ease;
   }
-  main.is-vertical .resizer {
-    flex: 0 0 8px !important;
-    width: 100% !important;
-    height: 8px !important;
-    cursor: row-resize !important;
-  }
-  main.is-vertical .resizer::after {
-    inset: -5px 0 !important;
-  }
-  main.is-vertical .resizer-grip {
-    width: 32px !important;
-    height: 3px !important;
-  }
-  main.is-vertical .resizer:hover .resizer-grip,
-  main.is-vertical .resizer.dragging .resizer-grip {
-    width: 48px !important;
-    height: 4px !important;
+  main.is-vertical .resizer,
+  main.is-vertical .resizer-sub {
+    display: none !important;
   }
 
-  @media (max-width: 600px) {
-    header { padding: 8px 12px; }
-    .brand-title { display: none; }
+  /* Pane collapse/expand chevron toggle */
+  .btn-pane-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin-right: 2px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .btn-pane-toggle:hover {
+    color: var(--text);
+    background: var(--btn-hover);
+  }
+  .chevron-icon {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    transition: transform 0.2s ease;
+  }
+  main.is-vertical .btn-pane-toggle {
+    display: inline-flex;
+  }
+
+  /* Collapsed state for accordion in vertical mode */
+  main.is-vertical .pane.collapsed {
+    flex: 0 0 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    overflow: hidden !important;
+  }
+  main.is-vertical .pane.collapsed .pane-body,
+  main.is-vertical .pane.collapsed #subpane-vars,
+  main.is-vertical .pane.collapsed .resizer-sub {
+    display: none !important;
+  }
+  main.is-vertical .pane.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+  }
+  main.is-vertical .pane-head {
+    cursor: pointer;
+  }
+  main.is-vertical .pane-head button,
+  main.is-vertical .pane-head select,
+  main.is-vertical .pane-head input,
+  main.is-vertical .pane-head .seg {
+    cursor: default;
+  }
+
+  @media (max-width: 680px) {
+    header { padding: 6px 10px; }
+    .brand { gap: 8px; }
+    .brand-text {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+    .brand-title {
+      font-size: 13px;
+      line-height: 1.1;
+    }
+    .brand-badge {
+      font-size: 8.5px;
+      padding: 0 5px;
+      line-height: 1.2;
+    }
     footer { font-size: 10px; gap: 8px; padding: 6px 12px; }
     #engine { display: none; }
+    .pane-head { padding: 6px 8px; gap: 6px; }
+    .pane-head .label { font-size: 11.5px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1098,9 +1204,11 @@
 
 <header>
   <div class="brand">
-    <div class="brand-logo">{ }</div>
-    <span class="brand-title">DataWeave</span>
-    <span class="brand-badge">Playground Pro</span>
+    <div class="brand-logo">&#123;&nbsp;&#125;</div>
+    <div class="brand-text">
+      <span class="brand-title">DataWeave</span>
+      <span class="brand-badge">Playground Pro</span>
+    </div>
   </div>
 
   <div class="header-actions">
@@ -1131,6 +1239,9 @@
     <!-- Payload sub-pane -->
     <div class="sub-pane" id="subpane-payload">
       <div class="pane-head">
+        <button type="button" class="btn-pane-toggle" id="toggle-input" title="Toggle Input Section" aria-label="Toggle Input Section">
+          <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
         <span class="label">Input &middot; Payload</span>
         <span class="grow"></span>
         <button type="button" id="btn-format-in" class="btn-sm" title="Prettify Payload">Format</button>
@@ -1183,6 +1294,9 @@
   <!-- 2. SCRIPT PANE (DataWeave 2.0) -->
   <section class="pane" id="pane-script">
     <div class="pane-head">
+      <button type="button" class="btn-pane-toggle" id="toggle-script" title="Toggle Transformation Section" aria-label="Toggle Transformation Section">
+        <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
       <span class="label">Transformation &middot; DataWeave 2.0</span>
       <span class="grow"></span>
       <button type="button" id="btn-copy-script" class="btn-sm" title="Copy DataWeave Script">
@@ -1203,7 +1317,11 @@
   <!-- 3. OUTPUT PANE -->
   <section class="pane" id="pane-output">
     <div class="pane-head">
+      <button type="button" class="btn-pane-toggle" id="toggle-output" title="Toggle Output Section" aria-label="Toggle Output Section">
+        <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
       <span class="label">Output</span>
+      <span id="output-error-badge" class="badge-error" style="display:none">Runtime Error</span>
       <span class="grow"></span>
       <button type="button" id="btn-format-out" class="btn-sm" title="Prettify Output">Format</button>
       <button type="button" id="btn-copy-out" class="btn-sm" title="Copy Output to Clipboard">
@@ -1221,7 +1339,6 @@
     <div class="pane-body">
       <textarea id="out" class="ed" spellcheck="false" readonly></textarea>
       <div id="errbox" class="errbox">
-        <div class="err-title">Runtime Error</div>
         <div id="err-text"></div>
       </div>
     </div>
@@ -1236,7 +1353,6 @@
 
 <footer>
   <span>POST&nbsp;/api/transform</span>
-  <span>Mule&nbsp;:8081</span>
   <span id="engine" style="margin-left:auto">live &middot; auto-runs as you type</span>
   <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: MrAdiii/dw-playground-pro">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -1700,12 +1816,22 @@
       mainContainer.classList.add("is-vertical");
       resizer1.setAttribute("aria-orientation", "horizontal");
       resizer2.setAttribute("aria-orientation", "horizontal");
+      paneInput.style.flex = "";
+      paneInput.style.width = "";
+      paneInput.style.height = "";
+      paneSc.style.flex = "";
+      paneSc.style.width = "";
+      paneSc.style.height = "";
+      paneOut.style.flex = "";
+      paneOut.style.width = "";
+      paneOut.style.height = "";
     } else {
       mainContainer.classList.remove("is-vertical");
       resizer1.setAttribute("aria-orientation", "vertical");
       resizer2.setAttribute("aria-orientation", "vertical");
+      [paneInput, paneSc, paneOut].forEach(function(p){ p.classList.remove("collapsed"); });
+      restoreLayout();
     }
-    restoreLayout();
     restoreVarsSplit();
   }
 
@@ -1786,7 +1912,8 @@
 
   btnResetLayout.addEventListener("click", function(){
     if (isVertical()) {
-      applyVertical(DEFAULT_V_PERCENTAGES[0], DEFAULT_V_PERCENTAGES[1], DEFAULT_V_PERCENTAGES[2], true);
+      [paneInput, paneSc, paneOut].forEach(function(p){ p.classList.remove("collapsed"); });
+      refreshAllEditors();
     } else {
       applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
     }
@@ -1796,17 +1923,15 @@
 
   [resizer1, resizer2].forEach(function(r){
     r.addEventListener("dblclick", function(){
-      if (isVertical()) {
-        applyVertical(DEFAULT_V_PERCENTAGES[0], DEFAULT_V_PERCENTAGES[1], DEFAULT_V_PERCENTAGES[2], true);
-      } else {
-        applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
-      }
+      if (isVertical()) return;
+      applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
       showToast("Layout reset to default");
     });
   });
 
   function setupResizer(resizerEl, isFirstSplitter) {
     resizerEl.addEventListener("pointerdown", function(e){
+      if (isVertical()) return;
       e.preventDefault();
 
       var vert = isVertical();
@@ -1988,9 +2113,11 @@
 
   var errbox = document.getElementById("errbox");
   var errText = document.getElementById("err-text");
+  var outErrBadge = document.getElementById("output-error-badge");
 
   function showOutput(t) {
     errbox.classList.remove("show");
+    if (outErrBadge) outErrBadge.style.display = "none";
     edOut.setMode(modeFor(outMime.value));
     edOut.setValue(t);
   }
@@ -1998,6 +2125,7 @@
   function showError(t) {
     errText.textContent = t;
     errbox.classList.add("show");
+    if (outErrBadge) outErrBadge.style.display = "inline-flex";
   }
 
   // ==========================================
@@ -2119,9 +2247,32 @@
     return msg;
   });
 
+  function setupCollapsiblePanes() {
+    var panes = [
+      { id: "pane-input", toggleId: "toggle-input" },
+      { id: "pane-script", toggleId: "toggle-script" },
+      { id: "pane-output", toggleId: "toggle-output" }
+    ];
+    panes.forEach(function(item){
+      var paneEl = document.getElementById(item.id);
+      var toggleBtn = document.getElementById(item.toggleId);
+      if (!paneEl || !toggleBtn) return;
+      function togglePane(e) {
+        if (!isVertical()) return;
+        if (e.target.closest("button:not(.btn-pane-toggle), select, input, .seg, a")) return;
+        paneEl.classList.toggle("collapsed");
+        setTimeout(refreshAllEditors, 50);
+      }
+      toggleBtn.addEventListener("click", togglePane);
+      var head = paneEl.querySelector(".pane-head");
+      if (head) head.addEventListener("click", togglePane);
+    });
+  }
+
   // Init layout, vars split, format buttons and theme
   applyTheme(currentTheme);
   updateLayoutMode();
+  setupCollapsiblePanes();
   syncFormatButtonVisibility();
 
   setTimeout(function(){
