@@ -29,3 +29,6 @@ Thumbs.db
 # Anypoint Studio metadata
 studio_metadata/
 .mule/
+
+# Local development scratch / preview server
+preview_server.py
