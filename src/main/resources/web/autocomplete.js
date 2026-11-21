@@ -875,13 +875,3379 @@
 
       if (!list.length) return null;
 
-      return {
+      var result = {
         list: list,
         from: CMPos(cursor.line, start),
         to: CMPos(cursor.line, end)
       };
+
+      if (global.CodeMirror && global.CodeMirror.on) {
+        global.CodeMirror.on(result, "select", function(completion, elt) {
+          showDocFlyout(completion, elt);
+        });
+        global.CodeMirror.on(result, "close", function() {
+          hideDocFlyout();
+        });
+      }
+
+      return result;
     };
   }
+
+
+  // ==========================================
+  // POP-UP DOCUMENTATION & HOVER ENGINE
+  // ==========================================
+  var DW_DOCS = {
+  "map": {
+    "name": "map",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "map(Array<T>, (item: T, index: Number) -> R): Array<R>",
+    "description": "Iterates over items in an array and applies an expression that transforms each element into a new value.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "The array to transform."
+      },
+      {
+        "name": "lambda",
+        "type": "(item, index) -> R",
+        "desc": "Transformation lambda function."
+      }
+    ],
+    "returns": "Array<R>",
+    "example": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map ((item, index) -> item * 10)\n// [10, 20, 30]"
+  },
+  "mapObject": {
+    "name": "mapObject",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "mapObject(Object, (value: Any, key: Key, index: Number) -> Object): Object",
+    "description": "Iterates over key-value pairs in an object and transforms each entry into a new key-value pair.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "The source object to transform."
+      },
+      {
+        "name": "lambda",
+        "type": "(value, key, index) -> Object",
+        "desc": "Lambda returning key-value pair."
+      }
+    ],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  price: 100,\n  tax: 15\n} mapObject ((v, k) -> {\n  (upper(k)): v * 1.1\n})"
+  },
+  "filter": {
+    "name": "filter",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "filter(Array<T>, (item: T, index: Number) -> Boolean): Array<T>",
+    "description": "Iterates over an array and returns only elements that satisfy the given predicate condition.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "The input array."
+      },
+      {
+        "name": "condition",
+        "type": "(item, index) -> Boolean",
+        "desc": "Predicate condition function."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4, 5] filter ((n) -> n > 2)\n// [3, 4, 5]"
+  },
+  "filterObject": {
+    "name": "filterObject",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "filterObject(Object, (value: Any, key: Key, index: Number) -> Boolean): Object",
+    "description": "Filters key-value pairs from an object, keeping only pairs that evaluate to true.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "The source object."
+      },
+      {
+        "name": "predicate",
+        "type": "(val, key, idx) -> Boolean",
+        "desc": "Filter predicate function."
+      }
+    ],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  a: 10,\n  b: 0,\n  c: 25\n} filterObject ((v) -> v > 0)\n// { a: 10, c: 25 }"
+  },
+  "reduce": {
+    "name": "reduce",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "reduce(Array<T>, (item: T, accumulator: A) -> A): A",
+    "description": "Applies a reduction expression to each element of an array to calculate a single accumulated value.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "The input array."
+      },
+      {
+        "name": "lambda",
+        "type": "(item, accumulator) -> Any",
+        "desc": "Accumulator lambda expression."
+      }
+    ],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] reduce ((item, acc = 0) -> acc + item)\n// 10"
+  },
+  "pluck": {
+    "name": "pluck",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "pluck(Object, (value: Any, key: Key, index: Number) -> R): Array<R>",
+    "description": "Extracts values, keys, or mapped results from an object into an array.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "The source object."
+      },
+      {
+        "name": "lambda",
+        "type": "(value, key, index) -> Any",
+        "desc": "Extraction lambda."
+      }
+    ],
+    "returns": "Array<R>",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  first: \"John\",\n  last: \"Doe\"\n} pluck ((v, k) -> k ++ \": \" ++ v)\n// [\"first: John\", \"last: Doe\"]"
+  },
+  "groupBy": {
+    "name": "groupBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "groupBy(Array<T> | Object, (item: T) -> Key): Object",
+    "description": "Groups elements of an array or object into a new object where keys are the criteria and values are arrays of matching items.",
+    "params": [
+      {
+        "name": "collection",
+        "type": "Array | Object",
+        "desc": "The collection to partition."
+      },
+      {
+        "name": "criteria",
+        "type": "(item) -> Key",
+        "desc": "Key grouping function."
+      }
+    ],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n[\n  {dept: \"IT\", name: \"Alice\"},\n  {dept: \"HR\", name: \"Bob\"},\n  {dept: \"IT\", name: \"Charlie\"}\n] groupBy ((emp) -> emp.dept)"
+  },
+  "orderBy": {
+    "name": "orderBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "orderBy(Array<T>, (item: T) -> Comparable): Array<T>",
+    "description": "Orders the elements of an array by a selected attribute or sorting expression in ascending order.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "The array to sort."
+      },
+      {
+        "name": "criteria",
+        "type": "(item) -> Comparable",
+        "desc": "Sorting expression."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\noutput application/json\n---\n[\n  {name: \"Zack\", age: 30},\n  {name: \"Alice\", age: 25}\n] orderBy ((p) -> p.age)"
+  },
+  "distinctBy": {
+    "name": "distinctBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "distinctBy(Array<T>, (item: T) -> Any): Array<T>",
+    "description": "Filters duplicate elements from an array using an evaluation expression.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "The array to de-duplicate."
+      },
+      {
+        "name": "criteria",
+        "type": "(item) -> Any",
+        "desc": "Uniqueness criteria function."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\noutput application/json\n---\n[\n  {id: 1, name: \"A\"},\n  {id: 1, name: \"B\"},\n  {id: 2, name: \"C\"}\n] distinctBy ((it) -> it.id)"
+  },
+  "flatten": {
+    "name": "flatten",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "flatten(Array<Array<T>>): Array<T>",
+    "description": "Flattens nested arrays into a single-level array.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<Array>",
+        "desc": "Nested array."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\noutput application/json\n---\nflatten([[1, 2], [3, 4], [5]])\n// [1, 2, 3, 4, 5]"
+  },
+  "sizeOf": {
+    "name": "sizeOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "sizeOf(Array | Object | String | Binary): Number",
+    "description": "Returns the number of elements in an array, keys in an object, or characters in a string.",
+    "params": [
+      {
+        "name": "value",
+        "type": "Any",
+        "desc": "Array, Object, String, or Binary to measure."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  arr: sizeOf([1, 2, 3]), // 3\n  str: sizeOf(\"hello\"),   // 5\n  obj: sizeOf({a: 1})     // 1\n}"
+  },
+  "typeOf": {
+    "name": "typeOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "typeOf(value: Any): Type",
+    "description": "Returns the schema type of the given value (e.g. String, Number, Array, Object, Boolean).",
+    "params": [
+      {
+        "name": "value",
+        "type": "Any",
+        "desc": "The value whose type is determined."
+      }
+    ],
+    "returns": "Type",
+    "example": "%dw 2.0\noutput application/json\n---\ntypeOf(\"hello\") // String\ntypeOf(123)     // Number"
+  },
+  "entriesOf": {
+    "name": "entriesOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "entriesOf(Object): Array<Entry>",
+    "description": "Returns an array of key-value entry objects representing each field in an object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Source object."
+      }
+    ],
+    "returns": "Array<Entry>",
+    "example": "%dw 2.0\noutput application/json\n---\nentriesOf({name: \"Alice\", age: 30})"
+  },
+  "keysOf": {
+    "name": "keysOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "keysOf(Object): Array<Key>",
+    "description": "Returns an array containing all the keys defined in an object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<Key>",
+    "example": "%dw 2.0\noutput application/json\n---\nkeysOf({a: 1, b: 2, c: 3})\n// [\"a\", \"b\", \"c\"]"
+  },
+  "valuesOf": {
+    "name": "valuesOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "valuesOf(Object): Array<Any>",
+    "description": "Returns an array containing all the values defined in an object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<Any>",
+    "example": "%dw 2.0\noutput application/json\n---\nvaluesOf({a: \"first\", b: \"second\"})\n// [\"first\", \"second\"]"
+  },
+  "namesOf": {
+    "name": "namesOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "namesOf(Object): Array<String>",
+    "description": "Returns an array of string names for every key in the object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<String>",
+    "example": "%dw 2.0\noutput application/json\n---\nnamesOf({x: 10, y: 20})\n// [\"x\", \"y\"]"
+  },
+  "contains": {
+    "name": "contains",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "contains(Array | String, item: Any): Boolean",
+    "description": "Checks if an array contains an element or if a string contains a substring.",
+    "params": [
+      {
+        "name": "source",
+        "type": "Array | String",
+        "desc": "Collection or string to inspect."
+      },
+      {
+        "name": "item",
+        "type": "Any",
+        "desc": "Target element or substring."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] contains 2 // true\n\"DataWeave\" contains \"Weave\" // true"
+  },
+  "find": {
+    "name": "find",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "find(Array | String, item: Any | Regex): Array<Number>",
+    "description": "Returns an array of 0-based indices where the target value or regex matches.",
+    "params": [
+      {
+        "name": "source",
+        "type": "Array | String",
+        "desc": "Collection or string."
+      },
+      {
+        "name": "item",
+        "type": "Any | Regex",
+        "desc": "Element or regex pattern."
+      }
+    ],
+    "returns": "Array<Number>",
+    "example": "%dw 2.0\noutput application/json\n---\n[10, 20, 30, 20] find 20 // [1, 3]\n\"banana\" find \"an\"       // [1, 3]"
+  },
+  "splitBy": {
+    "name": "splitBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "splitBy(text: String, separator: String | Regex): Array<String>",
+    "description": "Splits a string into an array of substrings using a delimiter or regex pattern.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string to split."
+      },
+      {
+        "name": "separator",
+        "type": "String | Regex",
+        "desc": "Delimiter string or regex."
+      }
+    ],
+    "returns": "Array<String>",
+    "example": "%dw 2.0\noutput application/json\n---\n\"apple,banana,cherry\" splitBy \",\"\n// [\"apple\", \"banana\", \"cherry\"]"
+  },
+  "joinBy": {
+    "name": "joinBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "joinBy(elements: Array, separator: String): String",
+    "description": "Concatenates elements of an array into a single string with the specified separator.",
+    "params": [
+      {
+        "name": "elements",
+        "type": "Array",
+        "desc": "Array of items."
+      },
+      {
+        "name": "separator",
+        "type": "String",
+        "desc": "Glue string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\n[\"Mule\", \"DataWeave\", \"Runtime\"] joinBy \" - \"\n// \"Mule - DataWeave - Runtime\""
+  },
+  "indexOf": {
+    "name": "indexOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "indexOf(Array | String, item: Any): Number",
+    "description": "Returns the first index of an element in an array or substring in a string, or -1 if not found.",
+    "params": [
+      {
+        "name": "source",
+        "type": "Array | String",
+        "desc": "Source sequence."
+      },
+      {
+        "name": "item",
+        "type": "Any",
+        "desc": "Target element."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n\"hello world\" indexOf \"world\" // 6"
+  },
+  "lastIndexOf": {
+    "name": "lastIndexOf",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "lastIndexOf(Array | String, item: Any): Number",
+    "description": "Returns the last index of an element in an array or substring in a string, or -1 if not found.",
+    "params": [
+      {
+        "name": "source",
+        "type": "Array | String",
+        "desc": "Source sequence."
+      },
+      {
+        "name": "item",
+        "type": "Any",
+        "desc": "Target element."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n\"banana\" lastIndexOf \"a\" // 5"
+  },
+  "zip": {
+    "name": "zip",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "zip(array1: Array, array2: Array): Array<Array>",
+    "description": "Merges two arrays into an array of 2-element tuples paired by index.",
+    "params": [
+      {
+        "name": "array1",
+        "type": "Array",
+        "desc": "First array."
+      },
+      {
+        "name": "array2",
+        "type": "Array",
+        "desc": "Second array."
+      }
+    ],
+    "returns": "Array<Array>",
+    "example": "%dw 2.0\noutput application/json\n---\nzip([\"a\", \"b\"], [1, 2])\n// [[\"a\", 1], [\"b\", 2]]"
+  },
+  "unzip": {
+    "name": "unzip",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "unzip(matrix: Array<Array>): Array<Array>",
+    "description": "Transposes an array of arrays, grouping elements by sub-index.",
+    "params": [
+      {
+        "name": "matrix",
+        "type": "Array<Array>",
+        "desc": "Matrix of tuples."
+      }
+    ],
+    "returns": "Array<Array>",
+    "example": "%dw 2.0\noutput application/json\n---\nunzip([[\"a\", 1], [\"b\", 2]])\n// [[\"a\", \"b\"], [1, 2]]"
+  },
+  "sum": {
+    "name": "sum",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "sum(Array<Number>): Number",
+    "description": "Returns the arithmetic sum of numbers in an array.",
+    "params": [
+      {
+        "name": "numbers",
+        "type": "Array<Number>",
+        "desc": "Array of numeric values."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nsum([10, 20, 30]) // 60"
+  },
+  "avg": {
+    "name": "avg",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "avg(Array<Number>): Number",
+    "description": "Returns the average (mean) of numbers in an array.",
+    "params": [
+      {
+        "name": "numbers",
+        "type": "Array<Number>",
+        "desc": "Array of numeric values."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\navg([10, 20, 30]) // 20"
+  },
+  "min": {
+    "name": "min",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "min(Array<Comparable>): Comparable",
+    "description": "Returns the lowest value from an array of comparable elements.",
+    "params": [
+      {
+        "name": "elements",
+        "type": "Array<Comparable>",
+        "desc": "Array of items."
+      }
+    ],
+    "returns": "Comparable",
+    "example": "%dw 2.0\noutput application/json\n---\nmin([5, 1, 9, 3]) // 1"
+  },
+  "max": {
+    "name": "max",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "max(Array<Comparable>): Comparable",
+    "description": "Returns the highest value from an array of comparable elements.",
+    "params": [
+      {
+        "name": "elements",
+        "type": "Array<Comparable>",
+        "desc": "Array of items."
+      }
+    ],
+    "returns": "Comparable",
+    "example": "%dw 2.0\noutput application/json\n---\nmax([5, 1, 9, 3]) // 9"
+  },
+  "minBy": {
+    "name": "minBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "minBy(Array<T>, (item: T) -> Comparable): T",
+    "description": "Returns the element that produces the lowest value when evaluated by the criteria lambda.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "criteria",
+        "type": "(item) -> Comparable",
+        "desc": "Evaluation function."
+      }
+    ],
+    "returns": "T",
+    "example": "%dw 2.0\noutput application/json\n---\n[{\"price\": 10}, {\"price\": 5}] minBy ((i) -> i.price)"
+  },
+  "maxBy": {
+    "name": "maxBy",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "maxBy(Array<T>, (item: T) -> Comparable): T",
+    "description": "Returns the element that produces the highest value when evaluated by the criteria lambda.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "criteria",
+        "type": "(item) -> Comparable",
+        "desc": "Evaluation function."
+      }
+    ],
+    "returns": "T",
+    "example": "%dw 2.0\noutput application/json\n---\n[{\"price\": 10}, {\"price\": 25}] maxBy ((i) -> i.price)"
+  },
+  "isEmpty": {
+    "name": "isEmpty",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "isEmpty(value: Any): Boolean",
+    "description": "Returns true if the given collection, string, or object is empty, null, or has size 0.",
+    "params": [
+      {
+        "name": "value",
+        "type": "Any",
+        "desc": "Target value to check."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\nisEmpty([])       // true\nisEmpty(\"\")       // true\nisEmpty({ a: 1 }) // false"
+  },
+  "isBlank": {
+    "name": "isBlank",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "isBlank(text: String): Boolean",
+    "description": "Returns true if the given string is empty, null, or consists entirely of whitespace.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\nisBlank(\"   \")    // true\nisBlank(\"hello\")  // false"
+  },
+  "upper": {
+    "name": "upper",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "upper(text: String): String",
+    "description": "Converts all characters in the string to uppercase.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\nupper(\"mule runtime\") // \"MULE RUNTIME\""
+  },
+  "lower": {
+    "name": "lower",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "lower(text: String): String",
+    "description": "Converts all characters in the string to lowercase.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\nlower(\"DATAWEAVE\") // \"dataweave\""
+  },
+  "trim": {
+    "name": "trim",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "trim(text: String): String",
+    "description": "Removes leading and trailing whitespace from a string.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\ntrim(\"  hello world  \") // \"hello world\""
+  },
+  "startsWith": {
+    "name": "startsWith",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "startsWith(text: String, prefix: String): Boolean",
+    "description": "Returns true if the string begins with the specified prefix.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "prefix",
+        "type": "String",
+        "desc": "Prefix substring."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\nstartsWith(\"DataWeave\", \"Data\") // true"
+  },
+  "endsWith": {
+    "name": "endsWith",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "endsWith(text: String, suffix: String): Boolean",
+    "description": "Returns true if the string ends with the specified suffix.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "suffix",
+        "type": "String",
+        "desc": "Suffix substring."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\nendsWith(\"index.json\", \".json\") // true"
+  },
+  "scan": {
+    "name": "scan",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "scan(text: String, regex: Regex): Array<Array<String>>",
+    "description": "Finds all matches and capture groups for a regular expression in a string.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "regex",
+        "type": "Regex",
+        "desc": "Regular expression pattern."
+      }
+    ],
+    "returns": "Array<Array<String>>",
+    "example": "%dw 2.0\noutput application/json\n---\n\"10 USD, 20 EUR\" scan /([0-9]+)\\s+([A-Z]+)/"
+  },
+  "replace": {
+    "name": "replace",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "replace(text: String, matcher: String | Regex) with replacement: String",
+    "description": "Replaces occurrences of a substring or regular expression with a replacement string.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "matcher",
+        "type": "String | Regex",
+        "desc": "Pattern to replace."
+      },
+      {
+        "name": "replacement",
+        "type": "String",
+        "desc": "New replacement string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\n\"hello world\" replace \"world\" with \"MuleSoft\""
+  },
+  "match": {
+    "name": "match",
+    "module": "Pattern Matching",
+    "type": "kw",
+    "signature": "<expression> match {\n  case <pattern> -> <result>\n  else -> <default>\n}",
+    "description": "Pattern matching expression that compares values against types, regexes, or literals.",
+    "params": [],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\npayload match {\n  case is Array -> sizeOf(payload)\n  case is Object -> namesOf(payload)\n  case str is String -> upper(str)\n  else -> null\n}"
+  },
+  "matches": {
+    "name": "matches",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "matches(text: String, regex: Regex): Boolean",
+    "description": "Returns true if the entire string matches the given regular expression pattern.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input text."
+      },
+      {
+        "name": "regex",
+        "type": "Regex",
+        "desc": "Regular expression pattern."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\n\"12345\" matches /[0-9]+/ // true"
+  },
+  "padStart": {
+    "name": "padStart",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "padStart(text: String, targetLength: Number, pad: String): String",
+    "description": "Pads the start of a string with another string until target length is reached.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Source string."
+      },
+      {
+        "name": "targetLength",
+        "type": "Number",
+        "desc": "Desired length."
+      },
+      {
+        "name": "pad",
+        "type": "String",
+        "desc": "Padding character."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\npadStart(\"42\", 5, \"0\") // \"00042\""
+  },
+  "padEnd": {
+    "name": "padEnd",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "padEnd(text: String, targetLength: Number, pad: String): String",
+    "description": "Pads the end of a string with another string until target length is reached.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Source string."
+      },
+      {
+        "name": "targetLength",
+        "type": "Number",
+        "desc": "Desired length."
+      },
+      {
+        "name": "pad",
+        "type": "String",
+        "desc": "Padding character."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\npadEnd(\"42\", 5, \".\") // \"42...\""
+  },
+  "abs": {
+    "name": "abs",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "abs(n: Number): Number",
+    "description": "Returns the absolute positive value of a number.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Numeric value."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nabs(-42) // 42"
+  },
+  "ceil": {
+    "name": "ceil",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "ceil(n: Number): Number",
+    "description": "Rounds a number up to the nearest integer.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Floating point number."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nceil(3.14) // 4"
+  },
+  "floor": {
+    "name": "floor",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "floor(n: Number): Number",
+    "description": "Rounds a number down to the nearest integer.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Floating point number."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nfloor(3.99) // 3"
+  },
+  "round": {
+    "name": "round",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "round(n: Number): Number",
+    "description": "Rounds a number to the nearest integer (half rounds up).",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Floating point number."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nround(3.5) // 4\nround(3.4) // 3"
+  },
+  "sqrt": {
+    "name": "sqrt",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "sqrt(n: Number): Number",
+    "description": "Returns the square root of a non-negative number.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Input number."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nsqrt(144) // 12"
+  },
+  "mod": {
+    "name": "mod",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "mod(dividend: Number, divisor: Number): Number",
+    "description": "Returns the remainder after dividing the first number by the second.",
+    "params": [
+      {
+        "name": "dividend",
+        "type": "Number",
+        "desc": "Left operand."
+      },
+      {
+        "name": "divisor",
+        "type": "Number",
+        "desc": "Right operand."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n10 mod 3 // 1"
+  },
+  "pow": {
+    "name": "pow",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "pow(base: Number, exponent: Number): Number",
+    "description": "Raises base to the power of exponent.",
+    "params": [
+      {
+        "name": "base",
+        "type": "Number",
+        "desc": "Base number."
+      },
+      {
+        "name": "exponent",
+        "type": "Number",
+        "desc": "Exponent."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n2 pow 8 // 256"
+  },
+  "log": {
+    "name": "log",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "log(prefix: String, value: Any): Any",
+    "description": "Logs a label and value to the application console while returning the value unchanged for expression chaining.",
+    "params": [
+      {
+        "name": "prefix",
+        "type": "String",
+        "desc": "Logging label."
+      },
+      {
+        "name": "value",
+        "type": "Any",
+        "desc": "Value to inspect."
+      }
+    ],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\nlog(\"Debug Items\", payload.items)"
+  },
+  "random": {
+    "name": "random",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "random(): Number",
+    "description": "Returns a pseudo-random decimal number between 0.0 (inclusive) and 1.0 (exclusive).",
+    "params": [],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nrandom() // e.g. 0.7491028"
+  },
+  "randomInt": {
+    "name": "randomInt",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "randomInt(max: Number): Number",
+    "description": "Returns a pseudo-random integer between 0 (inclusive) and max (exclusive).",
+    "params": [
+      {
+        "name": "max",
+        "type": "Number",
+        "desc": "Upper bound (exclusive)."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\nrandomInt(100) // e.g. 42"
+  },
+  "now": {
+    "name": "now",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "now(): DateTime",
+    "description": "Returns the current timestamp as a DateTime object with system timezone.",
+    "params": [],
+    "returns": "DateTime",
+    "example": "%dw 2.0\noutput application/json\n---\nnow() // |2026-11-21T16:15:00Z|"
+  },
+  "uuid": {
+    "name": "uuid",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "uuid(): String",
+    "description": "Generates a canonical RFC-4122 Version 4 random UUID string.",
+    "params": [],
+    "returns": "String",
+    "example": "%dw 2.0\noutput application/json\n---\nuuid() // \"a3f5a11c-7f5e-49b2-9a84-18471b0289ab\""
+  },
+  "read": {
+    "name": "read",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "read(source: String | Binary, mimeType: String): Any",
+    "description": "Parses a raw string or binary stream into a DataWeave value according to the specified MIME type.",
+    "params": [
+      {
+        "name": "source",
+        "type": "String | Binary",
+        "desc": "Raw text or binary."
+      },
+      {
+        "name": "mimeType",
+        "type": "String",
+        "desc": "Target MIME format (e.g. 'application/json')."
+      }
+    ],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\nread('{\"name\": \"Alice\"}', 'application/json')"
+  },
+  "readUrl": {
+    "name": "readUrl",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "readUrl(url: String, mimeType: String): Any",
+    "description": "Reads data from a classpath, file, or remote HTTP URL resource and parses it.",
+    "params": [
+      {
+        "name": "url",
+        "type": "String",
+        "desc": "Resource URI (e.g. 'classpath://data.json')."
+      },
+      {
+        "name": "mimeType",
+        "type": "String",
+        "desc": "MIME format."
+      }
+    ],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\nreadUrl(\"classpath://config.yaml\", \"application/yaml\")"
+  },
+  "write": {
+    "name": "write",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "write(value: Any, mimeType: String): String | Binary",
+    "description": "Serializes a DataWeave value into a formatted string or binary representation according to MIME type.",
+    "params": [
+      {
+        "name": "value",
+        "type": "Any",
+        "desc": "Value to serialize."
+      },
+      {
+        "name": "mimeType",
+        "type": "String",
+        "desc": "Target MIME type (e.g. 'application/csv')."
+      }
+    ],
+    "returns": "String | Binary",
+    "example": "%dw 2.0\noutput application/json\n---\nwrite(payload, \"application/csv\")"
+  },
+  "mergeWith": {
+    "name": "mergeWith",
+    "module": "dw::Core",
+    "type": "fn",
+    "signature": "mergeWith(source: Object, target: Object): Object",
+    "description": "Recursively combines two objects, overriding left values with right values for matching keys.",
+    "params": [
+      {
+        "name": "source",
+        "type": "Object",
+        "desc": "Base object."
+      },
+      {
+        "name": "target",
+        "type": "Object",
+        "desc": "Overrides object."
+      }
+    ],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } mergeWith { b: 99, c: 3 }\n// { a: 1, b: 99, c: 3 }"
+  },
+  "camelize": {
+    "name": "camelize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "camelize(text: String): String",
+    "description": "Transforms a string separated by spaces, dashes, or underscores into camelCase format.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ncamelize(\"customer_first_name\")\n// \"customerFirstName\""
+  },
+  "capitalize": {
+    "name": "capitalize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "capitalize(text: String): String",
+    "description": "Capitalizes the first character of each word in a string while converting the rest to lowercase.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ncapitalize(\"mulesoft dataweave\")\n// \"Mulesoft Dataweave\""
+  },
+  "dasherize": {
+    "name": "dasherize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "dasherize(text: String): String",
+    "description": "Converts camelCase, snake_case, or space-separated strings into kebab-case (hyphenated).",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ndasherize(\"customerFirstName\")\n// \"customer-first-name\""
+  },
+  "underscore": {
+    "name": "underscore",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "underscore(text: String): String",
+    "description": "Converts camelCase or hyphenated strings into snake_case (underscore-separated).",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nunderscore(\"customerFirstName\")\n// \"customer_first_name\""
+  },
+  "ordinalize": {
+    "name": "ordinalize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "ordinalize(n: Number): String",
+    "description": "Appends the English ordinal suffix (st, nd, rd, th) to a number.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Input number."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nordinalize(1)  // \"1st\"\nordinalize(22) // \"22nd\""
+  },
+  "pluralize": {
+    "name": "pluralize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "pluralize(text: String): String",
+    "description": "Returns the plural form of an English noun.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Singular noun."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\npluralize(\"box\")  // \"boxes\"\npluralize(\"user\") // \"users\""
+  },
+  "singularize": {
+    "name": "singularize",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "singularize(text: String): String",
+    "description": "Returns the singular form of an English plural noun.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Plural noun."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsingularize(\"boxes\") // \"box\""
+  },
+  "substring": {
+    "name": "substring",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "substring(text: String, from: Number, to: Number): String",
+    "description": "Extracts characters from the string between indices from (inclusive) and to (exclusive).",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "from",
+        "type": "Number",
+        "desc": "Start index."
+      },
+      {
+        "name": "to",
+        "type": "Number",
+        "desc": "End index."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsubstring(\"DataWeave\", 0, 4) // \"Data\""
+  },
+  "substringBefore": {
+    "name": "substringBefore",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "substringBefore(text: String, separator: String): String",
+    "description": "Extracts the portion of a string before the first occurrence of a separator.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "separator",
+        "type": "String",
+        "desc": "Separator."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsubstringBefore(\"user@example.com\", \"@\") // \"user\""
+  },
+  "substringAfter": {
+    "name": "substringAfter",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "substringAfter(text: String, separator: String): String",
+    "description": "Extracts the portion of a string after the first occurrence of a separator.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "separator",
+        "type": "String",
+        "desc": "Separator."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsubstringAfter(\"user@example.com\", \"@\") // \"example.com\""
+  },
+  "substringBeforeLast": {
+    "name": "substringBeforeLast",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "substringBeforeLast(text: String, separator: String): String",
+    "description": "Extracts the substring before the last occurrence of a delimiter.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "separator",
+        "type": "String",
+        "desc": "Delimiter."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsubstringBeforeLast(\"a.b.c.txt\", \".\") // \"a.b.c\""
+  },
+  "substringAfterLast": {
+    "name": "substringAfterLast",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "substringAfterLast(text: String, separator: String): String",
+    "description": "Extracts the substring after the last occurrence of a delimiter.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "separator",
+        "type": "String",
+        "desc": "Delimiter."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nsubstringAfterLast(\"archive.tar.gz\", \".\") // \"gz\""
+  },
+  "leftPad": {
+    "name": "leftPad",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "leftPad(text: String, size: Number, pad: String): String",
+    "description": "Left-pads a string with pad characters to reach the target size.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Source string."
+      },
+      {
+        "name": "size",
+        "type": "Number",
+        "desc": "Target length."
+      },
+      {
+        "name": "pad",
+        "type": "String",
+        "desc": "Pad character."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nleftPad(\"42\", 5, \"0\") // \"00042\""
+  },
+  "rightPad": {
+    "name": "rightPad",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "rightPad(text: String, size: Number, pad: String): String",
+    "description": "Right-pads a string with pad characters to reach the target size.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Source string."
+      },
+      {
+        "name": "size",
+        "type": "Number",
+        "desc": "Target length."
+      },
+      {
+        "name": "pad",
+        "type": "String",
+        "desc": "Pad character."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nrightPad(\"42\", 5, \" \") // \"42   \""
+  },
+  "repeat": {
+    "name": "repeat",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "repeat(text: String, count: Number): String",
+    "description": "Repeats a string count number of times.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "count",
+        "type": "Number",
+        "desc": "Repetition count."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nrepeat(\"abc\", 3) // \"abcabcabc\""
+  },
+  "wrapWith": {
+    "name": "wrapWith",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "wrapWith(text: String, wrapper: String): String",
+    "description": "Surrounds a string with the specified wrapper string on both sides.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "wrapper",
+        "type": "String",
+        "desc": "Wrapper string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nwrapWith(\"hello\", \"'\") // \"'hello'\""
+  },
+  "unwrap": {
+    "name": "unwrap",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "unwrap(text: String, wrapper: String): String",
+    "description": "Removes wrapper characters from the start and end of a string.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Wrapped string."
+      },
+      {
+        "name": "wrapper",
+        "type": "String",
+        "desc": "Wrapper string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nunwrap(\"'hello'\", \"'\") // \"hello\""
+  },
+  "words": {
+    "name": "words",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "words(text: String): Array<String>",
+    "description": "Splits a sentence into an array of words separated by whitespace.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Sentence string."
+      }
+    ],
+    "returns": "Array<String>",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nwords(\"Hello world Mule\") // [\"Hello\", \"world\", \"Mule\"]"
+  },
+  "collapse": {
+    "name": "collapse",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "collapse(text: String): String",
+    "description": "Replaces consecutive whitespace characters with a single space and trims ends.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ncollapse(\"  hello    world  \") // \"hello world\""
+  },
+  "characterCodeAt": {
+    "name": "characterCodeAt",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "characterCodeAt(text: String, index: Number): Number",
+    "description": "Returns the Unicode numeric character code at index.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      },
+      {
+        "name": "index",
+        "type": "Number",
+        "desc": "Character position."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ncharacterCodeAt(\"A\", 0) // 65"
+  },
+  "fromCharCode": {
+    "name": "fromCharCode",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "fromCharCode(code: Number): String",
+    "description": "Returns a string created from the given Unicode character code.",
+    "params": [
+      {
+        "name": "code",
+        "type": "Number",
+        "desc": "Unicode code point."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nfromCharCode(65) // \"A\""
+  },
+  "isAlpha": {
+    "name": "isAlpha",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isAlpha(text: String): Boolean",
+    "description": "Returns true if string contains only alphabetic characters [a-zA-Z].",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisAlpha(\"MuleSoft\") // true"
+  },
+  "isAlphanumeric": {
+    "name": "isAlphanumeric",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isAlphanumeric(text: String): Boolean",
+    "description": "Returns true if string contains only alphanumeric characters [a-zA-Z0-9].",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisAlphanumeric(\"Mule4\") // true"
+  },
+  "isDigits": {
+    "name": "isDigits",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isDigits(text: String): Boolean",
+    "description": "Returns true if string contains only decimal digits [0-9].",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisDigits(\"12345\") // true"
+  },
+  "isLowerCase": {
+    "name": "isLowerCase",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isLowerCase(text: String): Boolean",
+    "description": "Returns true if all characters in the string are lowercase.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisLowerCase(\"mule\") // true"
+  },
+  "isUpperCase": {
+    "name": "isUpperCase",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isUpperCase(text: String): Boolean",
+    "description": "Returns true if all characters in the string are uppercase.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisUpperCase(\"MULE\") // true"
+  },
+  "isNumeric": {
+    "name": "isNumeric",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isNumeric(text: String): Boolean",
+    "description": "Returns true if string can be parsed as a valid number.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisNumeric(\"-12.5\") // true"
+  },
+  "isWhitespace": {
+    "name": "isWhitespace",
+    "module": "dw::core::Strings",
+    "type": "fn",
+    "signature": "isWhitespace(text: String): Boolean",
+    "description": "Returns true if string contains only whitespace characters.",
+    "params": [
+      {
+        "name": "text",
+        "type": "String",
+        "desc": "Input string."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\nisWhitespace(\"   \\t\\n\") // true"
+  },
+  "countBy": {
+    "name": "countBy",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "countBy(Array<T>, (item: T) -> Boolean): Number",
+    "description": "Counts how many items in an array satisfy the given predicate function.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Condition."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ncountBy([1, 2, 3, 4, 5], (n) -> n > 2) // 3"
+  },
+  "divideBy": {
+    "name": "divideBy",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "divideBy(Array<T>, amount: Number): Array<Array<T>>",
+    "description": "Chunks an array into sub-arrays of maximum size amount.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "amount",
+        "type": "Number",
+        "desc": "Chunk capacity."
+      }
+    ],
+    "returns": "Array<Array<T>>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ndivideBy([1, 2, 3, 4, 5], 2)\n// [[1, 2], [3, 4], [5]]"
+  },
+  "drop": {
+    "name": "drop",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "drop(Array<T>, count: Number): Array<T>",
+    "description": "Drops the first count elements from an array.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "count",
+        "type": "Number",
+        "desc": "Number of elements to remove."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ndrop([1, 2, 3, 4, 5], 2) // [3, 4, 5]"
+  },
+  "dropWhile": {
+    "name": "dropWhile",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "dropWhile(Array<T>, (item: T) -> Boolean): Array<T>",
+    "description": "Drops elements from the beginning of the array as long as predicate returns true.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Drop condition."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ndropWhile([1, 2, 5, 1], (n) -> n < 3) // [5, 1]"
+  },
+  "every": {
+    "name": "every",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "every(Array<T>, (item: T) -> Boolean): Boolean",
+    "description": "Returns true if every item in the array satisfies the predicate.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Condition."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nevery([2, 4, 6], (n) -> n mod 2 == 0) // true"
+  },
+  "firstWith": {
+    "name": "firstWith",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "firstWith(Array<T>, (item: T) -> Boolean): T | Null",
+    "description": "Returns the first element matching predicate, or null if none match.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Search condition."
+      }
+    ],
+    "returns": "T | Null",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nfirstWith([1, 3, 4, 5], (n) -> n mod 2 == 0) // 4"
+  },
+  "join": {
+    "name": "join",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "join(left: Array, right: Array, (l) -> Key, (r) -> Key): Array",
+    "description": "Performs a SQL-style inner join between two arrays on matching key expressions.",
+    "params": [
+      {
+        "name": "left",
+        "type": "Array",
+        "desc": "Left collection."
+      },
+      {
+        "name": "right",
+        "type": "Array",
+        "desc": "Right collection."
+      },
+      {
+        "name": "leftKey",
+        "type": "(item) -> Key",
+        "desc": "Left join key selector."
+      },
+      {
+        "name": "rightKey",
+        "type": "(item) -> Key",
+        "desc": "Right join key selector."
+      }
+    ],
+    "returns": "Array",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\njoin(users, orders, (u) -> u.id, (o) -> o.userId)"
+  },
+  "partition": {
+    "name": "partition",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "partition(Array<T>, (item: T) -> Boolean): {success: Array<T>, failure: Array<T>}",
+    "description": "Splits an array into success and failure groups based on predicate.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Partition condition."
+      }
+    ],
+    "returns": "{success: Array<T>, failure: Array<T>}",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\npartition([1, 2, 3, 4], (n) -> n > 2)\n// { success: [3, 4], failure: [1, 2] }"
+  },
+  "slice": {
+    "name": "slice",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "slice(Array<T>, from: Number, to: Number): Array<T>",
+    "description": "Returns a slice of elements between from (inclusive) and to (exclusive).",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "from",
+        "type": "Number",
+        "desc": "Start index."
+      },
+      {
+        "name": "to",
+        "type": "Number",
+        "desc": "End index."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nslice([10, 20, 30, 40, 50], 1, 4) // [20, 30, 40]"
+  },
+  "some": {
+    "name": "some",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "some(Array<T>, (item: T) -> Boolean): Boolean",
+    "description": "Returns true if at least one item satisfies the predicate.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Test condition."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nsome([1, 3, 5, 8], (n) -> n mod 2 == 0) // true"
+  },
+  "splitAt": {
+    "name": "splitAt",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "splitAt(Array<T>, index: Number): {l: Array<T>, r: Array<T>}",
+    "description": "Splits an array into left and right sub-arrays at the specified index.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "index",
+        "type": "Number",
+        "desc": "Split point."
+      }
+    ],
+    "returns": "{l: Array<T>, r: Array<T>}",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nsplitAt([1, 2, 3, 4], 2) // { l: [1, 2], r: [3, 4] }"
+  },
+  "splitWhere": {
+    "name": "splitWhere",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "splitWhere(Array<T>, (item: T) -> Boolean): {l: Array<T>, r: Array<T>}",
+    "description": "Splits array at the first element matching predicate.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Split trigger condition."
+      }
+    ],
+    "returns": "{l: Array<T>, r: Array<T>}",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nsplitWhere([1, 2, 3, 4], (n) -> n >= 3)"
+  },
+  "sumBy": {
+    "name": "sumBy",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "sumBy(Array<T>, (item: T) -> Number): Number",
+    "description": "Calculates the sum of numbers produced by the selector lambda.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "selector",
+        "type": "(item) -> Number",
+        "desc": "Numeric value selector."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nsumBy([{\"price\": 10}, {\"price\": 25}], (i) -> i.price) // 35"
+  },
+  "take": {
+    "name": "take",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "take(Array<T>, count: Number): Array<T>",
+    "description": "Returns the first count elements from an array.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "count",
+        "type": "Number",
+        "desc": "Number of elements to take."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ntake([1, 2, 3, 4, 5], 3) // [1, 2, 3]"
+  },
+  "takeWhile": {
+    "name": "takeWhile",
+    "module": "dw::core::Arrays",
+    "type": "fn",
+    "signature": "takeWhile(Array<T>, (item: T) -> Boolean): Array<T>",
+    "description": "Takes elements from the start of the array as long as predicate returns true.",
+    "params": [
+      {
+        "name": "array",
+        "type": "Array<T>",
+        "desc": "Input array."
+      },
+      {
+        "name": "predicate",
+        "type": "(item) -> Boolean",
+        "desc": "Condition."
+      }
+    ],
+    "returns": "Array<T>",
+    "example": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\ntakeWhile([1, 2, 5, 1], (n) -> n < 3) // [1, 2]"
+  },
+  "entrySet": {
+    "name": "entrySet",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "entrySet(Object): Array<Entry>",
+    "description": "Returns an array of key-value-attribute entry records from an object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Source object."
+      }
+    ],
+    "returns": "Array<Entry>",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\nentrySet({ a: 1, b: 2 })"
+  },
+  "everyEntry": {
+    "name": "everyEntry",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "everyEntry(Object, (value: Any, key: Key) -> Boolean): Boolean",
+    "description": "Returns true if every key-value pair in an object satisfies the predicate.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Source object."
+      },
+      {
+        "name": "predicate",
+        "type": "(value, key) -> Boolean",
+        "desc": "Entry condition."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\neveryEntry({ a: 10, b: 20 }, (v, k) -> v > 5) // true"
+  },
+  "keySet": {
+    "name": "keySet",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "keySet(Object): Array<Key>",
+    "description": "Returns an array of unique Key objects from the given object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<Key>",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\nkeySet({ name: \"Mule\", ver: 4 }) // [\"name\", \"ver\"]"
+  },
+  "nameSet": {
+    "name": "nameSet",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "nameSet(Object): Array<String>",
+    "description": "Returns an array of unique string names for every key in the object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<String>",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\nnameSet({ name: \"Mule\", ver: 4 }) // [\"name\", \"ver\"]"
+  },
+  "someEntry": {
+    "name": "someEntry",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "someEntry(Object, (value: Any, key: Key) -> Boolean): Boolean",
+    "description": "Returns true if at least one entry in the object satisfies the predicate.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Source object."
+      },
+      {
+        "name": "predicate",
+        "type": "(value, key) -> Boolean",
+        "desc": "Entry condition."
+      }
+    ],
+    "returns": "Boolean",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\nsomeEntry({ a: 1, b: 20 }, (v, k) -> v > 10) // true"
+  },
+  "valueSet": {
+    "name": "valueSet",
+    "module": "dw::core::Objects",
+    "type": "fn",
+    "signature": "valueSet(Object): Array<Any>",
+    "description": "Returns an array of values extracted from the object.",
+    "params": [
+      {
+        "name": "object",
+        "type": "Object",
+        "desc": "Input object."
+      }
+    ],
+    "returns": "Array<Any>",
+    "example": "%dw 2.0\nimport * from dw::core::Objects\noutput application/json\n---\nvalueSet({ a: 100, b: 200 }) // [100, 200]"
+  },
+  "fromHex": {
+    "name": "fromHex",
+    "module": "dw::core::Numbers",
+    "type": "fn",
+    "signature": "fromHex(hex: String): Number",
+    "description": "Parses a hexadecimal string representation into a decimal Number.",
+    "params": [
+      {
+        "name": "hex",
+        "type": "String",
+        "desc": "Hexadecimal string (e.g. 'FF')."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::core::Numbers\noutput application/json\n---\nfromHex(\"1A\") // 26"
+  },
+  "fromRadixNumber": {
+    "name": "fromRadixNumber",
+    "module": "dw::core::Numbers",
+    "type": "fn",
+    "signature": "fromRadixNumber(str: String, radix: Number): Number",
+    "description": "Parses a number string according to the specified base/radix (2 to 36).",
+    "params": [
+      {
+        "name": "str",
+        "type": "String",
+        "desc": "Number string representation."
+      },
+      {
+        "name": "radix",
+        "type": "Number",
+        "desc": "Radix base (e.g. 2, 8, 16)."
+      }
+    ],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::core::Numbers\noutput application/json\n---\nfromRadixNumber(\"1010\", 2) // 10"
+  },
+  "toHex": {
+    "name": "toHex",
+    "module": "dw::core::Numbers",
+    "type": "fn",
+    "signature": "toHex(n: Number): String",
+    "description": "Formats a decimal number into a hexadecimal string.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Decimal number."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Numbers\noutput application/json\n---\ntoHex(255) // \"ff\""
+  },
+  "toRadixNumber": {
+    "name": "toRadixNumber",
+    "module": "dw::core::Numbers",
+    "type": "fn",
+    "signature": "toRadixNumber(n: Number, radix: Number): String",
+    "description": "Formats a number into a string in the specified base/radix (2 to 36).",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Decimal number."
+      },
+      {
+        "name": "radix",
+        "type": "Number",
+        "desc": "Target radix (e.g. 2, 8, 16)."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Numbers\noutput application/json\n---\ntoRadixNumber(10, 2) // \"1010\""
+  },
+  "days": {
+    "name": "days",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "days(n: Number): Period",
+    "description": "Creates a Period duration representing n days.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Day count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + days(5)"
+  },
+  "hours": {
+    "name": "hours",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "hours(n: Number): Period",
+    "description": "Creates a Period duration representing n hours.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Hour count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + hours(2)"
+  },
+  "millis": {
+    "name": "millis",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "millis(n: Number): Period",
+    "description": "Creates a Period duration representing n milliseconds.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Millisecond count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nmillis(500)"
+  },
+  "minutes": {
+    "name": "minutes",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "minutes(n: Number): Period",
+    "description": "Creates a Period duration representing n minutes.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Minute count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + minutes(30)"
+  },
+  "months": {
+    "name": "months",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "months(n: Number): Period",
+    "description": "Creates a Period duration representing n months.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Month count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + months(3)"
+  },
+  "nanos": {
+    "name": "nanos",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "nanos(n: Number): Period",
+    "description": "Creates a Period duration representing n nanoseconds.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Nanosecond count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnanos(1000)"
+  },
+  "seconds": {
+    "name": "seconds",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "seconds(n: Number): Period",
+    "description": "Creates a Period duration representing n seconds.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Second count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + seconds(45)"
+  },
+  "years": {
+    "name": "years",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "years(n: Number): Period",
+    "description": "Creates a Period duration representing n years.",
+    "params": [
+      {
+        "name": "n",
+        "type": "Number",
+        "desc": "Year count."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nnow() + years(1)"
+  },
+  "period": {
+    "name": "period",
+    "module": "dw::core::Periods",
+    "type": "fn",
+    "signature": "period(parts: Object): Period",
+    "description": "Constructs a Period object from individual duration fields (days, hours, minutes, seconds).",
+    "params": [
+      {
+        "name": "parts",
+        "type": "Object",
+        "desc": "Duration components."
+      }
+    ],
+    "returns": "Period",
+    "example": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\nperiod({ days: 2, hours: 4 })"
+  },
+  "today": {
+    "name": "today",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "today(): Date",
+    "description": "Returns current calendar date (|YYYY-MM-DD|) in system timezone.",
+    "params": [],
+    "returns": "Date",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\ntoday() // |2026-11-21|"
+  },
+  "yesterday": {
+    "name": "yesterday",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "yesterday(): Date",
+    "description": "Returns yesterday's calendar date in system timezone.",
+    "params": [],
+    "returns": "Date",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\nyesterday() // |2026-11-20|"
+  },
+  "tomorrow": {
+    "name": "tomorrow",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "tomorrow(): Date",
+    "description": "Returns tomorrow's calendar date in system timezone.",
+    "params": [],
+    "returns": "Date",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\ntomorrow() // |2026-11-22|"
+  },
+  "atBeginningOfDay": {
+    "name": "atBeginningOfDay",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "atBeginningOfDay(DateTime): DateTime",
+    "description": "Resets the time component of a DateTime to 00:00:00.000.",
+    "params": [
+      {
+        "name": "dt",
+        "type": "DateTime",
+        "desc": "Input DateTime."
+      }
+    ],
+    "returns": "DateTime",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\natBeginningOfDay(now())"
+  },
+  "atBeginningOfMonth": {
+    "name": "atBeginningOfMonth",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "atBeginningOfMonth(Date | DateTime): Date | DateTime",
+    "description": "Resets the date to the first day of the current month.",
+    "params": [
+      {
+        "name": "d",
+        "type": "Date | DateTime",
+        "desc": "Input date."
+      }
+    ],
+    "returns": "Date | DateTime",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\natBeginningOfMonth(today())"
+  },
+  "atBeginningOfWeek": {
+    "name": "atBeginningOfWeek",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "atBeginningOfWeek(Date | DateTime): Date | DateTime",
+    "description": "Resets the date to the first day of the week (Monday).",
+    "params": [
+      {
+        "name": "d",
+        "type": "Date | DateTime",
+        "desc": "Input date."
+      }
+    ],
+    "returns": "Date | DateTime",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\natBeginningOfWeek(today())"
+  },
+  "atBeginningOfYear": {
+    "name": "atBeginningOfYear",
+    "module": "dw::core::Dates",
+    "type": "fn",
+    "signature": "atBeginningOfYear(Date | DateTime): Date | DateTime",
+    "description": "Resets the date to January 1st of the current year.",
+    "params": [
+      {
+        "name": "d",
+        "type": "Date | DateTime",
+        "desc": "Input date."
+      }
+    ],
+    "returns": "Date | DateTime",
+    "example": "%dw 2.0\nimport * from dw::core::Dates\noutput application/json\n---\natBeginningOfYear(today())"
+  },
+  "fromBase64": {
+    "name": "fromBase64",
+    "module": "dw::core::Binaries",
+    "type": "fn",
+    "signature": "fromBase64(base64Str: String): Binary",
+    "description": "Decodes a Base64-encoded string into raw Binary byte stream.",
+    "params": [
+      {
+        "name": "base64Str",
+        "type": "String",
+        "desc": "Base64 encoded string."
+      }
+    ],
+    "returns": "Binary",
+    "example": "%dw 2.0\nimport * from dw::core::Binaries\noutput application/octet-stream\n---\nfromBase64(\"SGVsbG8=\")"
+  },
+  "toBase64": {
+    "name": "toBase64",
+    "module": "dw::core::Binaries",
+    "type": "fn",
+    "signature": "toBase64(b: Binary): String",
+    "description": "Encodes raw Binary data into a Base64 string representation.",
+    "params": [
+      {
+        "name": "b",
+        "type": "Binary",
+        "desc": "Raw byte data."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::Binaries\noutput application/json\n---\ntoBase64(\"Hello\" as Binary)"
+  },
+  "encodeURI": {
+    "name": "encodeURI",
+    "module": "dw::core::URL",
+    "type": "fn",
+    "signature": "encodeURI(uri: String): String",
+    "description": "Encodes a complete URI string, escaping special and non-ASCII characters.",
+    "params": [
+      {
+        "name": "uri",
+        "type": "String",
+        "desc": "Full URI string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\nencodeURI(\"https://example.com/search?q=mule runtime\")"
+  },
+  "encodeURIComponent": {
+    "name": "encodeURIComponent",
+    "module": "dw::core::URL",
+    "type": "fn",
+    "signature": "encodeURIComponent(comp: String): String",
+    "description": "Encodes a URI query parameter or path segment component.",
+    "params": [
+      {
+        "name": "comp",
+        "type": "String",
+        "desc": "Component string."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\nencodeURIComponent(\"mule runtime & dataweave\")"
+  },
+  "decodeURI": {
+    "name": "decodeURI",
+    "module": "dw::core::URL",
+    "type": "fn",
+    "signature": "decodeURI(uri: String): String",
+    "description": "Decodes an encoded URI string back into plain characters.",
+    "params": [
+      {
+        "name": "uri",
+        "type": "String",
+        "desc": "Encoded URI."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\ndecodeURI(\"https://example.com/search?q=mule%20runtime\")"
+  },
+  "decodeURIComponent": {
+    "name": "decodeURIComponent",
+    "module": "dw::core::URL",
+    "type": "fn",
+    "signature": "decodeURIComponent(comp: String): String",
+    "description": "Decodes an encoded URI component fragment.",
+    "params": [
+      {
+        "name": "comp",
+        "type": "String",
+        "desc": "Encoded component."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\ndecodeURIComponent(\"mule%20runtime%20%26%20dataweave\")"
+  },
+  "parseURI": {
+    "name": "parseURI",
+    "module": "dw::core::URL",
+    "type": "fn",
+    "signature": "parseURI(uriString: String): Object",
+    "description": "Parses a URI into its constituent parts: scheme, host, port, path, and queryParams.",
+    "params": [
+      {
+        "name": "uriString",
+        "type": "String",
+        "desc": "URI string to parse."
+      }
+    ],
+    "returns": "Object",
+    "example": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\nparseURI(\"https://api.github.com:443/users?page=1\")"
+  },
+  "MD5": {
+    "name": "MD5",
+    "module": "dw::Crypto",
+    "type": "fn",
+    "signature": "MD5(content: Binary | String): String",
+    "description": "Computes the MD5 128-bit hash digest for the given input as a hexadecimal string.",
+    "params": [
+      {
+        "name": "content",
+        "type": "Binary | String",
+        "desc": "Content to hash."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::Crypto\noutput application/json\n---\nMD5(\"hello world\") // \"5eb63bbbe01eeed093cb22bb8f5acdc3\""
+  },
+  "SHA1": {
+    "name": "SHA1",
+    "module": "dw::Crypto",
+    "type": "fn",
+    "signature": "SHA1(content: Binary | String): String",
+    "description": "Computes the SHA-1 160-bit hash checksum for the given input.",
+    "params": [
+      {
+        "name": "content",
+        "type": "Binary | String",
+        "desc": "Content to hash."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::Crypto\noutput application/json\n---\nSHA1(\"hello world\")"
+  },
+  "HMACBinary": {
+    "name": "HMACBinary",
+    "module": "dw::Crypto",
+    "type": "fn",
+    "signature": "HMACBinary(content: Binary, key: Binary, algorithm: String): Binary",
+    "description": "Generates an HMAC cryptographic hash as raw Binary using specified algorithm (e.g. 'HmacSHA256').",
+    "params": [
+      {
+        "name": "content",
+        "type": "Binary",
+        "desc": "Message payload."
+      },
+      {
+        "name": "key",
+        "type": "Binary",
+        "desc": "Secret key."
+      },
+      {
+        "name": "algorithm",
+        "type": "String",
+        "desc": "HMAC algorithm (e.g. 'HmacSHA256')."
+      }
+    ],
+    "returns": "Binary",
+    "example": "%dw 2.0\nimport * from dw::Crypto\noutput application/octet-stream\n---\nHMACBinary(\"data\" as Binary, \"secret\" as Binary, \"HmacSHA256\")"
+  },
+  "HMACWith": {
+    "name": "HMACWith",
+    "module": "dw::Crypto",
+    "type": "fn",
+    "signature": "HMACWith(content: Binary, key: Binary, algorithm: String): String",
+    "description": "Generates an HMAC cryptographic hash formatted as a hex string.",
+    "params": [
+      {
+        "name": "content",
+        "type": "Binary",
+        "desc": "Message payload."
+      },
+      {
+        "name": "key",
+        "type": "Binary",
+        "desc": "Secret key."
+      },
+      {
+        "name": "algorithm",
+        "type": "String",
+        "desc": "HMAC algorithm (e.g. 'HmacSHA256')."
+      }
+    ],
+    "returns": "String",
+    "example": "%dw 2.0\nimport * from dw::Crypto\noutput application/json\n---\nHMACWith(\"data\" as Binary, \"secret\" as Binary, \"HmacSHA256\")"
+  },
+  "diff": {
+    "name": "diff",
+    "module": "dw::util::Diff",
+    "type": "fn",
+    "signature": "diff(a: Any, b: Any): {matches: Boolean, diffs: Array}",
+    "description": "Performs structural diff comparison between two documents, returning match status and field-level diffs.",
+    "params": [
+      {
+        "name": "a",
+        "type": "Any",
+        "desc": "Expected document."
+      },
+      {
+        "name": "b",
+        "type": "Any",
+        "desc": "Actual document."
+      }
+    ],
+    "returns": "{matches: Boolean, diffs: Array}",
+    "example": "%dw 2.0\nimport * from dw::util::Diff\noutput application/json\n---\ndiff({ a: 1, b: 2 }, { a: 1, b: 3 })"
+  },
+  "currentMilliseconds": {
+    "name": "currentMilliseconds",
+    "module": "dw::util::Timer",
+    "type": "fn",
+    "signature": "currentMilliseconds(): Number",
+    "description": "Returns current epoch timestamp in milliseconds.",
+    "params": [],
+    "returns": "Number",
+    "example": "%dw 2.0\nimport * from dw::util::Timer\noutput application/json\n---\ncurrentMilliseconds()"
+  },
+  "duration": {
+    "name": "duration",
+    "module": "dw::util::Timer",
+    "type": "fn",
+    "signature": "duration(() -> Any): {time: Number, result: Any}",
+    "description": "Times execution duration of the enclosed lambda expression in milliseconds.",
+    "params": [
+      {
+        "name": "lambda",
+        "type": "() -> Any",
+        "desc": "Expression block to time."
+      }
+    ],
+    "returns": "{time: Number, result: Any}",
+    "example": "%dw 2.0\nimport * from dw::util::Timer\noutput application/json\n---\nduration(() -> (1 to 1000) map ($ * 2))"
+  },
+  "time": {
+    "name": "time",
+    "module": "dw::util::Timer",
+    "type": "fn",
+    "signature": "time(() -> Any): {start: DateTime, end: DateTime, result: Any}",
+    "description": "Records start and end timestamp of lambda execution along with return result.",
+    "params": [
+      {
+        "name": "lambda",
+        "type": "() -> Any",
+        "desc": "Expression block to execute."
+      }
+    ],
+    "returns": "{start: DateTime, end: DateTime, result: Any}",
+    "example": "%dw 2.0\nimport * from dw::util::Timer\noutput application/json\n---\ntime(() -> (1 to 1000) map ($ * 2))"
+  },
+  "envVar": {
+    "name": "envVar",
+    "module": "dw::System",
+    "type": "fn",
+    "signature": "envVar(name: String): String | Null",
+    "description": "Retrieves the value of an operating system environment variable by name.",
+    "params": [
+      {
+        "name": "name",
+        "type": "String",
+        "desc": "Environment variable name."
+      }
+    ],
+    "returns": "String | Null",
+    "example": "%dw 2.0\nimport * from dw::System\noutput application/json\n---\nenvVar(\"PATH\")"
+  },
+  "envVars": {
+    "name": "envVars",
+    "module": "dw::System",
+    "type": "fn",
+    "signature": "envVars(): Object",
+    "description": "Returns an object containing all available operating system environment variables.",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\nimport * from dw::System\noutput application/json\n---\nenvVars()"
+  },
+  "payload": {
+    "name": "payload",
+    "module": "Context Variable",
+    "type": "var",
+    "signature": "payload: Any",
+    "description": "The primary inbound message payload (e.g. JSON, XML, CSV, Java Object). Access attributes with payload.field or payload[0].",
+    "params": [],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  message: payload.message,\n  count: sizeOf(payload.items)\n}"
+  },
+  "vars": {
+    "name": "vars",
+    "module": "Context Variable",
+    "type": "var",
+    "signature": "vars: Object",
+    "description": "Map containing all user-defined Mule flow variables. Accessible via vars.myVar or vars['myVar'].",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  factor: vars.factor,\n  adjusted: payload.items map ($ * vars.factor)\n}"
+  },
+  "attributes": {
+    "name": "attributes",
+    "module": "Context Variable",
+    "type": "var",
+    "signature": "attributes: Object",
+    "description": "Metadata attributes associated with inbound message (e.g. headers, queryParams, uriParams, statusCode, path).",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  client: attributes.headers['client-id'],\n  page: attributes.queryParams.page\n}"
+  },
+  "message": {
+    "name": "message",
+    "module": "Context Variable",
+    "type": "var",
+    "signature": "message: Object",
+    "description": "The complete Mule message wrapper containing message.payload and message.attributes.",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\nmessage.payload"
+  },
+  "error": {
+    "name": "error",
+    "module": "Context Variable",
+    "type": "var",
+    "signature": "error: Object",
+    "description": "Error details object accessible in error handlers (e.g. error.description, error.errorType, error.detailedDescription).",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  errCode: error.errorType.identifier,\n  errMsg: error.description\n}"
+  },
+  "$": {
+    "name": "$",
+    "module": "Lambda Shorthand",
+    "type": "var",
+    "signature": "$: Any",
+    "description": "Anonymous single-parameter shorthand referring to the current element in a collection iteration or lambda.",
+    "params": [],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map ($ * 10)\n// [10, 20, 30]"
+  },
+  "$$": {
+    "name": "$$",
+    "module": "Lambda Shorthand",
+    "type": "var",
+    "signature": "$$: Number | Key",
+    "description": "Anonymous second-parameter shorthand referring to the current index (in arrays) or current key (in objects).",
+    "params": [],
+    "returns": "Number | Key",
+    "example": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"c\"] map { index: $$, value: $ }"
+  },
+  "$$$": {
+    "name": "$$$",
+    "module": "Lambda Shorthand",
+    "type": "var",
+    "signature": "$$$: Number",
+    "description": "Anonymous third-parameter shorthand referring to index in mapObject iterations.",
+    "params": [],
+    "returns": "Number",
+    "example": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } mapObject { ($$): { val: $, idx: $$$ } }"
+  },
+  "output": {
+    "name": "output",
+    "module": "Directive",
+    "type": "kw",
+    "signature": "output <mimeType> [parameters]",
+    "description": "Specifies the target serialization format (e.g. application/json, application/csv, application/xml, application/yaml).",
+    "params": [],
+    "returns": "Directive",
+    "example": "%dw 2.0\noutput application/csv header=true\n---\npayload"
+  },
+  "input": {
+    "name": "input",
+    "module": "Directive",
+    "type": "kw",
+    "signature": "input <source> <mimeType>",
+    "description": "Declares the MIME type format of an input payload or variable in the header.",
+    "params": [],
+    "returns": "Directive",
+    "example": "%dw 2.0\ninput payload application/xml\noutput application/json\n---\npayload"
+  },
+  "var": {
+    "name": "var",
+    "module": "Declaration",
+    "type": "kw",
+    "signature": "var <name> = <expression>",
+    "description": "Declares an immutable script-level variable in the DataWeave header.",
+    "params": [],
+    "returns": "Declaration",
+    "example": "%dw 2.0\nvar rate = 1.15\noutput application/json\n---\npayload.price * rate"
+  },
+  "fun": {
+    "name": "fun",
+    "module": "Declaration",
+    "type": "kw",
+    "signature": "fun <name>(<params>) = <expression>",
+    "description": "Declares a reusable custom function in the header.",
+    "params": [],
+    "returns": "Declaration",
+    "example": "%dw 2.0\nfun toEuro(usd) = usd * 0.92\noutput application/json\n---\ntoEuro(100)"
+  },
+  "import": {
+    "name": "import",
+    "module": "Directive",
+    "type": "kw",
+    "signature": "import [items] from <module>",
+    "description": "Imports functions, variables, or types from standard library modules (e.g. dw::core::Strings, dw::Crypto).",
+    "params": [],
+    "returns": "Directive",
+    "example": "%dw 2.0\nimport * from dw::core::Strings\noutput application/json\n---\ncamelize(\"my_var\")"
+  },
+  "do": {
+    "name": "do",
+    "module": "Scope",
+    "type": "kw",
+    "signature": "do {\n  [var/fun declarations]\n  ---\n  <body expression>\n}",
+    "description": "Creates a localized scope block with its own header declarations and body expression.",
+    "params": [],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\ndo {\n  var x = 10\n  ---\n  x * 2\n}"
+  },
+  "update": {
+    "name": "update",
+    "module": "Object Mutation",
+    "type": "kw",
+    "signature": "<object> update {\n  case .<path> -> <newValue>\n}",
+    "description": "Non-destructively modifies nested attributes or elements within objects and arrays.",
+    "params": [],
+    "returns": "Object",
+    "example": "%dw 2.0\noutput application/json\n---\npayload update {\n  case .user.status -> \"ACTIVE\"\n}"
+  },
+  "default": {
+    "name": "default",
+    "module": "Operator",
+    "type": "kw",
+    "signature": "<expression> default <fallbackValue>",
+    "description": "Returns the fallback value if the left expression evaluates to null or does not exist.",
+    "params": [],
+    "returns": "Any",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  name: payload.name default \"Anonymous\"\n}"
+  },
+  "as": {
+    "name": "as",
+    "module": "Coercion",
+    "type": "kw",
+    "signature": "<value> as <Type> [format]",
+    "description": "Coerces a value to the specified target type (e.g. as Number, as Date {format: 'yyyy-MM-dd'}).",
+    "params": [],
+    "returns": "Type",
+    "example": "%dw 2.0\noutput application/json\n---\n{\n  num: \"123\" as Number,\n  dt: \"2026-11-21\" as Date\n}"
+  },
+  "is": {
+    "name": "is",
+    "module": "Type Check",
+    "type": "kw",
+    "signature": "<value> is <Type>",
+    "description": "Returns true if the value matches the specified type or schema.",
+    "params": [],
+    "returns": "Boolean",
+    "example": "%dw 2.0\noutput application/json\n---\npayload is Object // true"
+  }
+};
+
+  function getDocInfo(itemOrName) {
+    if (!itemOrName) return null;
+    if (typeof itemOrName === "string") {
+      var query = itemOrName.trim();
+      if (DW_DOCS[query]) return DW_DOCS[query];
+      var shortQuery = query.split("::").pop();
+      if (DW_DOCS[shortQuery]) return DW_DOCS[shortQuery];
+      // Search in DW_MODULE_FUNCTIONS or DW_CATALOG
+      for (var i = 0; i < DW_MODULE_FUNCTIONS.length; i++) {
+        var mf = DW_MODULE_FUNCTIONS[i];
+        if (mf.displayText === query || mf.text.indexOf(query) === 0) {
+          return {
+            name: mf.displayText || query,
+            module: mf.module || "Standard Library",
+            type: mf.type || "fn",
+            signature: mf.doc || mf.text,
+            description: "MuleSoft DataWeave Standard Library function (" + (mf.module || "") + ").",
+            example: "%dw 2.0\nimport * from " + mf.module + "\noutput application/json\n---\n" + (mf.displayText || query) + "()"
+          };
+        }
+      }
+      for (var j = 0; j < DW_CATALOG.length; j++) {
+        var cat = DW_CATALOG[j];
+        if (cat.displayText === query || cat.text.trim() === query) {
+          return {
+            name: cat.displayText || query,
+            module: cat.module || "dw::Core",
+            type: cat.type || "kw",
+            signature: cat.text,
+            description: cat.doc || ("DataWeave 2.0 " + (cat.type || "element")),
+            example: ""
+          };
+        }
+      }
+      return null;
+    }
+
+    var it = itemOrName.data || itemOrName;
+    var rawName = (it.displayText || it.text || "").replace(/\(.*$/, "").trim();
+    if (DW_DOCS[rawName]) {
+      var d = Object.assign({}, DW_DOCS[rawName]);
+      if (it.module) d.module = it.module;
+      return d;
+    }
+
+    // Dynamic field from payload
+    if (it.type === "field") {
+      return {
+        name: it.displayText || it.text,
+        module: "Inbound Payload Field",
+        type: "field",
+        signature: "payload." + (it.displayText || it.text),
+        description: it.doc || "Dynamic field detected in inbound payload.",
+        example: "%dw 2.0\noutput application/json\n---\npayload." + (it.displayText || it.text)
+      };
+    }
+
+    // MIME type
+    if (it.type === "mime") {
+      return {
+        name: it.displayText || it.text,
+        module: "MIME Type",
+        type: "mime",
+        signature: "output " + it.text,
+        description: it.doc || ("DataWeave output format: " + it.text),
+        example: "%dw 2.0\noutput " + it.text + "\n---\npayload"
+      };
+    }
+
+    return {
+      name: it.displayText || it.text,
+      module: it.module || "dw::Core",
+      type: it.type || "kw",
+      signature: it.doc || it.text,
+      description: it.doc || "DataWeave construct.",
+      example: ""
+    };
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function renderDocCardHtml(doc) {
+    if (!doc) return "";
+    var html = '<div class="dw-doc-body">';
+
+    // Header
+    html += '<div class="dw-doc-header">';
+    html += '  <div class="dw-doc-title-row">';
+    html += '    <span class="dw-doc-name">' + escapeHtml(doc.name) + '</span>';
+    html += '    <span class="dw-doc-badge dw-badge-' + escapeHtml(doc.type || "kw") + '">' + escapeHtml(doc.type || "kw") + '</span>';
+    html += '  </div>';
+    if (doc.module) {
+      html += '  <div class="dw-doc-mod">' + escapeHtml(doc.module) + '</div>';
+    }
+    html += '</div>';
+
+    // Signature
+    if (doc.signature) {
+      html += '<div class="dw-doc-sig-box"><code>' + escapeHtml(doc.signature) + '</code></div>';
+    }
+
+    // Description
+    if (doc.description) {
+      html += '<div class="dw-doc-desc">' + escapeHtml(doc.description) + '</div>';
+    }
+
+    // Parameters
+    if (doc.params && doc.params.length > 0) {
+      html += '<div class="dw-doc-section">';
+      html += '  <div class="dw-doc-section-title">Parameters</div>';
+      html += '  <table class="dw-doc-params"><tbody>';
+      doc.params.forEach(function(p) {
+        html += '    <tr>';
+        html += '      <td class="dw-doc-param-name">' + escapeHtml(p.name) + '</td>';
+        html += '      <td class="dw-doc-param-type">' + escapeHtml(p.type || "Any") + '</td>';
+        html += '      <td class="dw-doc-param-desc">' + escapeHtml(p.desc || "") + '</td>';
+        html += '    </tr>';
+      });
+      html += '  </tbody></table>';
+      html += '</div>';
+    }
+
+    // Returns
+    if (doc.returns) {
+      html += '<div class="dw-doc-returns"><span class="dw-doc-label">Returns:</span> <code>' + escapeHtml(doc.returns) + '</code></div>';
+    }
+
+    // Example
+    if (doc.example) {
+      html += '<div class="dw-doc-section">';
+      html += '  <div class="dw-doc-section-title">Example</div>';
+      html += '  <pre class="dw-doc-example"><code>' + escapeHtml(doc.example) + '</code></pre>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  // --- FLYOUT & HOVER DOM MANAGERS ---
+  var flyoutEl = null;
+  var hoverEl = null;
+  var hoverTimer = null;
+  var activeHoverWord = null;
+
+  function getOrCreateFlyout() {
+    if (!flyoutEl) {
+      flyoutEl = document.createElement("div");
+      flyoutEl.id = "dw-doc-flyout";
+      flyoutEl.className = "dw-doc-flyout";
+      document.body.appendChild(flyoutEl);
+    }
+    return flyoutEl;
+  }
+
+  function getOrCreateHoverTooltip() {
+    if (!hoverEl) {
+      hoverEl = document.createElement("div");
+      hoverEl.id = "dw-hover-tooltip";
+      hoverEl.className = "dw-hover-tooltip";
+      document.body.appendChild(hoverEl);
+
+      hoverEl.addEventListener("mouseleave", function() {
+        hideHoverTooltip();
+      });
+    }
+    return hoverEl;
+  }
+
+  function showDocFlyout(completion, elt) {
+    if (!completion) return;
+    var doc = getDocInfo(completion.data || completion);
+    if (!doc) {
+      hideDocFlyout();
+      return;
+    }
+
+    var flyout = getOrCreateFlyout();
+    flyout.innerHTML = renderDocCardHtml(doc);
+
+    // Position alongside .CodeMirror-hints
+    requestAnimationFrame(function() {
+      var hintsMenu = (elt && elt.closest) ? elt.closest(".CodeMirror-hints") : document.querySelector(".CodeMirror-hints");
+      if (!hintsMenu) {
+        flyout.style.display = "none";
+        return;
+      }
+
+      var menuRect = hintsMenu.getBoundingClientRect();
+      var flyoutWidth = 380;
+      var spaceRight = window.innerWidth - menuRect.right;
+      var left;
+
+      if (spaceRight >= flyoutWidth + 12 || spaceRight >= menuRect.left) {
+        left = menuRect.right + 6;
+      } else {
+        left = menuRect.left - flyoutWidth - 6;
+      }
+      left = Math.max(10, Math.min(left, window.innerWidth - flyoutWidth - 10));
+
+      var top = menuRect.top;
+      var flyoutHeight = flyout.offsetHeight || 320;
+      if (top + flyoutHeight > window.innerHeight - 10) {
+        top = Math.max(10, window.innerHeight - flyoutHeight - 10);
+      }
+
+      flyout.style.left = left + "px";
+      flyout.style.top = top + "px";
+      flyout.style.display = "block";
+    });
+  }
+
+  function hideDocFlyout() {
+    if (flyoutEl) {
+      flyoutEl.style.display = "none";
+    }
+  }
+
+  function showHoverTooltip(cm, pos, clientX, clientY) {
+    if (document.querySelector(".CodeMirror-hints") || (cm.state && cm.state.completionActive)) {
+      hideHoverTooltip();
+      return;
+    }
+
+    var word = getWordAt(cm, pos);
+    if (!word) {
+      hideHoverTooltip();
+      return;
+    }
+
+    var doc = getDocInfo(word);
+    if (!doc) {
+      hideHoverTooltip();
+      return;
+    }
+
+    activeHoverWord = word;
+    var tooltip = getOrCreateHoverTooltip();
+    tooltip.innerHTML = renderDocCardHtml(doc);
+
+    requestAnimationFrame(function() {
+      var coords = cm.charCoords(pos, "window");
+      var tooltipWidth = 380;
+      var left = coords.left;
+      left = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
+
+      var top = coords.bottom + 6;
+      var tooltipHeight = tooltip.offsetHeight || 260;
+      if (top + tooltipHeight > window.innerHeight - 10) {
+        top = Math.max(10, coords.top - tooltipHeight - 6);
+      }
+
+      tooltip.style.left = left + "px";
+      tooltip.style.top = top + "px";
+      tooltip.style.display = "block";
+    });
+  }
+
+  function hideHoverTooltip() {
+    clearTimeout(hoverTimer);
+    activeHoverWord = null;
+    if (hoverEl) {
+      hoverEl.style.display = "none";
+    }
+  }
+
+  function getWordAt(cm, pos) {
+    var tok = cm.getTokenAt(pos);
+    if (tok && tok.string) {
+      var s = tok.string.trim();
+      if (s && /[a-zA-Z0-9_$:.]/.test(s)) {
+        return s;
+      }
+    }
+    var line = cm.getLine(pos.line);
+    if (!line) return "";
+    var ch = pos.ch;
+    var start = ch, end = ch;
+    while (start > 0 && /[a-zA-Z0-9_$:.]/.test(line.charAt(start - 1))) start--;
+    while (end < line.length && /[a-zA-Z0-9_$:.]/.test(line.charAt(end))) end++;
+    return line.slice(start, end).trim();
+  }
+
+  function setupHoverTooltips(cm) {
+    if (!cm || !cm.getWrapperElement) return;
+    var wrapper = cm.getWrapperElement();
+
+    wrapper.addEventListener("mousemove", function(e) {
+      if (document.querySelector(".CodeMirror-hints") || (cm.state && cm.state.completionActive)) {
+        hideHoverTooltip();
+        return;
+      }
+
+      var pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+      if (!pos) {
+        hideHoverTooltip();
+        return;
+      }
+
+      var word = getWordAt(cm, pos);
+      if (!word) {
+        hideHoverTooltip();
+        return;
+      }
+
+      if (word === activeHoverWord && hoverEl && hoverEl.style.display === "block") {
+        return; // Already showing for this word
+      }
+
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function() {
+        showHoverTooltip(cm, pos, e.clientX, e.clientY);
+      }, 260);
+    });
+
+    wrapper.addEventListener("mouseleave", function(e) {
+      if (hoverEl && e.relatedTarget === hoverEl) return;
+      hideHoverTooltip();
+    });
+
+    cm.on("cursorActivity", hideHoverTooltip);
+    cm.on("scroll", hideHoverTooltip);
+    cm.on("change", hideHoverTooltip);
+  }
+
+  function injectDocStyles() {
+    if (document.getElementById("dw-doc-styles")) return;
+    var style = document.createElement("style");
+    style.id = "dw-doc-styles";
+    style.textContent = `
+      .dw-doc-flyout,
+      .dw-hover-tooltip {
+        position: fixed;
+        z-index: 100000;
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        max-height: 480px;
+        background: var(--panel, #0e1520);
+        border: 1px solid var(--border-hover, #334155);
+        border-radius: 8px;
+        box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--text, #e2e8f0);
+        padding: 0;
+        display: none;
+        overflow: hidden;
+        backdrop-filter: blur(14px);
+        box-sizing: border-box;
+        animation: dwDocFadeIn 0.12s ease-out;
+      }
+
+      @keyframes dwDocFadeIn {
+        from { opacity: 0; transform: translateY(2px) scale(0.985); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .dw-doc-body {
+        padding: 12px 14px;
+        max-height: 480px;
+        overflow-y: auto;
+        box-sizing: border-box;
+      }
+
+      .dw-doc-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border, #1e293b);
+      }
+
+      .dw-doc-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .dw-doc-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent, #2dd4bf);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .dw-doc-badge {
+        display: inline-block;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 1px 5px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+      }
+
+      .dw-doc-mod {
+        font-size: 11px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--text-faint, #64748b);
+        background: var(--btn-bg, #172234);
+        border: 1px solid var(--border, #1e293b);
+        padding: 1px 6px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .dw-doc-sig-box {
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid var(--border, #1e293b);
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #38bdf8;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .dw-doc-desc {
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text, #e2e8f0);
+        margin-bottom: 10px;
+      }
+
+      .dw-doc-section {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border, #1e293b);
+      }
+
+      .dw-doc-section-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-faint, #64748b);
+        margin-bottom: 6px;
+      }
+
+      .dw-doc-params {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+        margin-bottom: 6px;
+      }
+
+      .dw-doc-params td {
+        padding: 3px 6px 3px 0;
+        vertical-align: top;
+      }
+
+      .dw-doc-param-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 600;
+        color: #fbbf24;
+        white-space: nowrap;
+      }
+
+      .dw-doc-param-type {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: #a78bfa;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .dw-doc-param-desc {
+        color: var(--text-muted, #94a3b8);
+        line-height: 1.35;
+      }
+
+      .dw-doc-returns {
+        font-size: 11.5px;
+        color: var(--text-muted, #94a3b8);
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dw-doc-returns code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: #34d399;
+        font-size: 11.5px;
+      }
+
+      .dw-doc-example {
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border, #1e293b);
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11.5px;
+        line-height: 1.45;
+        color: #e2e8f0;
+        overflow-x: auto;
+        white-space: pre;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
 
   function renderHintItem(elt, self, data) {
     var it = data.data || data;
@@ -952,16 +4318,25 @@
         });
       }
     }));
+
+    // Initialize hover tooltips and inject doc styles
+    injectDocStyles();
+    setupHoverTooltips(edSc.cm);
   }
 
   global.DataWeaveAutocomplete = {
     catalog: DW_CATALOG,
     moduleFunctions: DW_MODULE_FUNCTIONS,
     mimeTypes: MIME_TYPES,
+    docs: DW_DOCS,
+    getDocInfo: getDocInfo,
+    showDocFlyout: showDocFlyout,
+    hideDocFlyout: hideDocFlyout,
+    setupHoverTooltips: setupHoverTooltips,
     analyzePayload: analyzePayload,
     ensureImport: ensureImport,
     createHint: createDataWeaveHint,
     setup: setupAutocomplete
   };
 
-})(window);
+})(typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : this));
