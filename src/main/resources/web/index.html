@@ -2057,7 +2057,7 @@
 
     var startTime = performance.now();
     try {
-      var res = await fetch("/api/transform", {
+      var res = await fetch("./api/transform", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
@@ -2068,6 +2068,9 @@
       if (res.ok) {
         showOutput(text);
         setStatus("ok", latency);
+      } else if (res.status === 429) {
+        showError("⚠️ Rate limit reached (Spike guard active).\n\n" + text);
+        setStatus("error", latency);
       } else {
         showError(text);
         setStatus("error", latency);
