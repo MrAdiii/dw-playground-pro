@@ -172,6 +172,53 @@ docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop clou
 
 ---
 
+### Option 5 — Deploy with Nginx Spike Guard & Subpath Routing (Optional)
+
+For public exposure (such as Tailscale Funnel) or multi-user environments, an optional **Nginx Spike Guard** reverse proxy is included. It is **disabled by default**, keeping standard local use completely direct and minimal.
+
+#### Why use the Nginx Guard?
+1. **Spike Control (10 req/s limit):** Throttles incoming `/api/transform` requests to a maximum of 10 requests per second per IP (with a burst buffer of 10), returning `429 Too Many Requests` + `Retry-After: 1` when exceeded. Spikes are absorbed at the Nginx socket layer without consuming JVM threads or memory.
+2. **Subpath Routing (`/dataweave-playground-pro`):** Transparently maps and proxies traffic from `/dataweave-playground-pro/` to the application root, enabling seamless reverse proxy subpaths and Tailscale Funnel integration (`https://<tailnet>.ts.net:8443/dataweave-playground-pro`).
+3. **Payload Protection:** Configured with `client_max_body_size 35M` to preserve 30MB+ payload support.
+
+#### Deployment Scripts
+
+Two dedicated deployment scripts are provided:
+
+**1. Deploy Direct (Without Nginx — Default)**
+```powershell
+# Windows
+.\deploy-direct.ps1
+```
+```bash
+# Linux / macOS
+./deploy-direct.sh
+# Or standard compose:
+docker compose -f docker-compose.yml up -d
+```
+- Exposes Mule directly at `http://localhost:8091`.
+
+**2. Deploy with Nginx Spike Guard (Optional)**
+```powershell
+# Windows
+.\deploy-nginx.ps1
+```
+```bash
+# Linux / macOS
+./deploy-nginx.sh
+# Or compose overlay:
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d
+```
+- Nginx binds to `http://localhost:8091` (and `http://localhost:8091/dataweave-playground-pro/`).
+- Mule runs securely on the internal Docker network on port 8081 without exposing unthrottled ports to the host.
+
+To stop:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml down
+```
+
+---
+
 ## Sharing the image
 
 ### Without a registry — export to a file

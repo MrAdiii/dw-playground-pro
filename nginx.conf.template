@@ -1,0 +1,72 @@
+# -----------------------------------------------------------------------------
+# DataWeave Playground Pro - Nginx Spike Guard & Subpath Reverse Proxy
+# Configurable Rate Limit & Burst via Docker Environment Variables
+# -----------------------------------------------------------------------------
+
+limit_req_zone $binary_remote_addr zone=dw_limit:10m rate=${RATE_LIMIT_RPS};
+limit_req_status 429;
+
+server {
+    listen 80;
+    server_name _;
+
+    # Support large payloads (configurable)
+    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+
+    # Custom 429 response
+    error_page 429 /rate_limit_error;
+    location = /rate_limit_error {
+        default_type text/plain;
+        add_header Retry-After 1 always;
+        return 429 "Too Many Requests: Spike control limit reached (${RATE_LIMIT_RPS} max). Please slow down.\n";
+    }
+
+    # 1. API endpoint at root with spike control
+    location = /api/transform {
+        limit_req zone=dw_limit burst=${RATE_LIMIT_BURST} nodelay;
+
+        proxy_pass http://dw-playground-pro:8081/api/transform;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 2. API endpoint under subpath with spike control
+    location = /dataweave-playground-pro/api/transform {
+        limit_req zone=dw_limit burst=${RATE_LIMIT_BURST} nodelay;
+
+        proxy_pass http://dw-playground-pro:8081/api/transform;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 3. Subpath routing: /dataweave-playground-pro/
+    location /dataweave-playground-pro/ {
+        proxy_pass http://dw-playground-pro:8081/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Redirect /dataweave-playground-pro to /dataweave-playground-pro/
+    location = /dataweave-playground-pro {
+        return 301 /dataweave-playground-pro/;
+    }
+
+    # 4. Direct root access: / (local LAN or direct port access)
+    location / {
+        proxy_pass http://dw-playground-pro:8081/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
