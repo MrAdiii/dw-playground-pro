@@ -299,6 +299,98 @@
     gap: 0;
   }
 
+  /* Play / Run Button */
+  .btn-run {
+    background: var(--accent);
+    color: #042f2c;
+    border-color: var(--accent);
+    font-weight: 700;
+    gap: 5px;
+    padding: 3px 9px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.15s ease;
+  }
+  .btn-run:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #042f2c;
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+  .btn-run svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+  }
+
+  /* Live / Manual Mode Toggle Switch */
+  .mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-sub);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 7px 2px 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: inherit;
+    line-height: 1;
+    height: 24px;
+  }
+  .mode-switch:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .mode-switch-track {
+    width: 22px;
+    height: 12px;
+    background: var(--border);
+    border-radius: 999px;
+    position: relative;
+    transition: background-color 0.2s ease;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .mode-switch-thumb {
+    width: 8px;
+    height: 8px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+  }
+  .mode-switch.is-live {
+    border-color: rgba(45, 212, 191, 0.4);
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+  .mode-switch.is-live .mode-switch-track {
+    background: var(--accent);
+  }
+  .mode-switch.is-live .mode-switch-thumb {
+    transform: translateX(10px);
+  }
+  :root[data-theme="dark"] .mode-switch.is-live .mode-switch-thumb {
+    background: #042f2c;
+  }
+  :root[data-theme="light"] .mode-switch.is-live .mode-switch-thumb {
+    background: #ffffff;
+  }
+  .mode-switch-text {
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
   /* --- Main 3-Pane Layout with Draggable Splitters --- */
   main {
     flex: 1;
@@ -1370,6 +1462,16 @@
       </button>
       <span class="label">Transformation &middot; DataWeave 2.0</span>
       <span class="grow"></span>
+      <button type="button" id="btn-run" class="btn-sm btn-run" title="Run Transformation (Ctrl+Enter)">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span>Run</span>
+      </button>
+      <button type="button" id="mode-toggle" class="mode-switch" role="switch" aria-checked="false" title="Toggle Live / Manual execution mode">
+        <span class="mode-switch-track">
+          <span class="mode-switch-thumb"></span>
+        </span>
+        <span class="mode-switch-text" id="mode-text">manual</span>
+      </button>
       <button type="button" id="btn-paste-script" class="btn-sm btn-icon" title="Paste DataWeave Script">
         <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
       </button>
@@ -1423,8 +1525,8 @@
 </div>
 
 <footer>
-  <span>POST&nbsp;/api/transform</span>
-  <span id="engine" style="margin-left:auto">live &middot; auto-runs as you type</span>
+  <span id="engine">manual &middot; click Run to transform</span>
+  <span class="grow" style="flex:1"></span>
   <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: dw-playground-pro">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
     <span>DataWeave Playground Pro</span>
@@ -1521,7 +1623,11 @@
           lineNumbers: true,
           lineWrapping: true,
           indentUnit: 2,
-          tabSize: 2
+          tabSize: 2,
+          extraKeys: {
+            "Ctrl-Enter": function() { run(); },
+            "Cmd-Enter": function() { run(); }
+          }
         }, opts || {}));
 
         return {
@@ -1554,8 +1660,15 @@
   var edSc   = makeEditor(document.getElementById("script"), {mode: hasCM ? "dataweave" : null});
   var edOut  = makeEditor(document.getElementById("out"),    {mode: modeFor(outMime.value), readOnly: true});
 
-  if (!hasCM) {
-    document.getElementById("engine").textContent = "live · plain editor (CodeMirror unavailable)";
+  var engineEl = document.getElementById("engine");
+  function updateEngineFooterText() {
+    if (!engineEl) return;
+    var suffix = hasCM ? "" : " (CodeMirror unavailable)";
+    if (isLiveMode) {
+      engineEl.textContent = "live \u00B7 auto-runs as you type" + suffix;
+    } else {
+      engineEl.textContent = "manual \u00B7 click Run to transform" + suffix;
+    }
   }
 
   // Initialize DataWeave Autocomplete (loaded from autocomplete.js)
@@ -2327,11 +2440,61 @@
   }
 
   // ==========================================
-  // 10. LIVE DEBOUNCED TRANSFORMATION RUNNER
+  // 10. TRANSFORMATION RUNNER & LIVE/MANUAL MODE
   // ==========================================
   var timer = null, controller = null;
+  var isLiveMode = false; // default off (manual mode)
+  var btnRun = document.getElementById("btn-run");
+  var modeToggle = document.getElementById("mode-toggle");
+  var modeText = document.getElementById("mode-text");
+
+  function setLiveMode(live, triggerRun) {
+    isLiveMode = !!live;
+    if (isLiveMode) {
+      if (modeToggle) {
+        modeToggle.classList.add("is-live");
+        modeToggle.setAttribute("aria-checked", "true");
+      }
+      if (modeText) modeText.textContent = "live";
+      if (btnRun) btnRun.style.display = "none";
+    } else {
+      if (modeToggle) {
+        modeToggle.classList.remove("is-live");
+        modeToggle.setAttribute("aria-checked", "false");
+      }
+      if (modeText) modeText.textContent = "manual";
+      if (btnRun) btnRun.style.display = "inline-flex";
+    }
+    updateEngineFooterText();
+    if (isLiveMode && triggerRun) {
+      run();
+    }
+  }
+
+  if (modeToggle) {
+    modeToggle.addEventListener("click", function(e){
+      e.stopPropagation();
+      setLiveMode(!isLiveMode, true);
+    });
+  }
+
+  if (btnRun) {
+    btnRun.addEventListener("click", function(e){
+      e.stopPropagation();
+      run();
+    });
+  }
+
+  // Keyboard shortcut Ctrl+Enter / Cmd+Enter to manually trigger run
+  document.addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      run();
+    }
+  });
 
   function schedule() {
+    if (!isLiveMode) return;
     clearTimeout(timer);
     setStatus("running");
     timer = setTimeout(run, 1000);
@@ -2397,13 +2560,13 @@
   inMime.addEventListener("change", function(){
     edIn.setMode(modeFor(inMime.value));
     syncFormatButtonVisibility();
-    run();
+    if (isLiveMode) run();
   });
 
   outMime.addEventListener("change", function(){
     setScriptOutputType(outMime.value);
     syncFormatButtonVisibility();
-    run();
+    if (isLiveMode) run();
   });
 
   // Warn on page refresh / reload / tab close so user doesn't lose inputs accidentally
@@ -2429,13 +2592,14 @@
     });
   }
 
-  // Init layout, vars split, format buttons and theme
+  // Init layout, vars split, format buttons, theme and execution mode
   applyTheme(currentTheme);
   updateLayoutMode();
   updateVarsLayout();
   setupVarsToggle();
   setupCollapsiblePanes();
   syncFormatButtonVisibility();
+  setLiveMode(false);
 
   setTimeout(function(){
     refreshAllEditors();
