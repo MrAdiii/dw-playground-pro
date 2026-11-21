@@ -116,7 +116,16 @@ the playground on port 8091.
 
 #### Start with the tunnel
 
+**Windows (PowerShell)**
+```powershell
+.\deploy-cloudflared.ps1
+```
+
+**Linux / macOS**
 ```bash
+chmod +x deploy-cloudflared.sh
+./deploy-cloudflared.sh
+# Or standard compose:
 docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
 ```
 
@@ -168,6 +177,69 @@ on a URL that never changes.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop cloudflared
+```
+
+---
+
+### Option 5 — Deploy with Nginx Spike Guard, Rate Limiting & Subpath Routing (Optional)
+
+For public exposure (such as Tailscale Funnel, reverse proxies, or multi-user environments), an optional **Nginx Spike Guard** reverse proxy sidecar is included. It is **disabled by default**, keeping standard local use completely direct and minimal.
+
+#### Why use the Nginx Guard?
+1. **Per-Client Rate Limiting & Spike Control:** Throttles `/api/transform` executions per individual client IP using Nginx's leaky bucket algorithm (`rate=10r/m`, burst buffer of 5). When exceeded, Nginx immediately returns `HTTP 429 Too Many Requests` with a `Retry-After: 60` header and JSON error details, absorbing request spikes at the socket layer without consuming JVM memory or thread pools.
+2. **Reverse Proxy Real-IP Preservation:** Automatically extracts the real visitor IP from the `X-Forwarded-For` header using `ngx_http_realip_module` (trusting localhost and Docker CIDRs). This guarantees that external visitors over Tailscale Funnel, Cloudflare, or an upstream proxy do not share the Docker gateway IP or exhaust each other's rate limit quota.
+3. **Subpath Routing (`/dataweave-playground-pro`):** Transparently proxies traffic under `/dataweave-playground-pro/` directly to the application root, enabling seamless reverse proxy subpaths and Tailscale Funnel integration (`https://<tailnet>.ts.net:8443/dataweave-playground-pro/`).
+4. **Payload Protection:** Configured with `client_max_body_size 35M` to preserve 35MB payload support.
+
+#### Configurable Environment Variables
+
+You can customize rate limits in `docker-compose.nginx.yml` or via `.env`:
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `RATE_LIMIT_RPS` | `10r/m` | Allowed request frequency per IP (e.g. `10r/m` for 10/min, `2r/s` for 2/sec) |
+| `RATE_LIMIT_BURST` | `5` | Burst capacity before rejecting requests with HTTP 429 |
+| `RATE_LIMIT_RETRY_AFTER` | `60` | Value (in seconds) sent in the `Retry-After` header |
+| `CLIENT_MAX_BODY_SIZE` | `35M` | Maximum allowed payload size for input transformations |
+
+#### Live Transform vs. On-Demand Advice
+- **Live Transform Mode:** When enabled, DataWeave transformations run dynamically on every debounced keystroke.
+- **On-Demand Mode:** For heavy scripts or continuous typing, toggle off "Live" mode and click the **Transform** button manually to conserve request limits.
+
+#### Deployment Scripts
+
+Two dedicated deployment scripts are provided:
+
+**1. Deploy Direct (Without Nginx — Default)**
+```powershell
+# Windows
+.\deploy-direct.ps1
+```
+```bash
+# Linux / macOS
+./deploy-direct.sh
+# Or standard compose:
+docker compose -f docker-compose.yml up -d
+```
+- Exposes Mule directly at `http://localhost:8091`.
+
+**2. Deploy with Nginx Spike Guard (Optional)**
+```powershell
+# Windows
+.\deploy-nginx.ps1
+```
+```bash
+# Linux / macOS
+./deploy-nginx.sh
+# Or compose overlay:
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d
+```
+- Nginx binds to `http://localhost:8091` (and `http://localhost:8091/dataweave-playground-pro/`).
+- Mule runs securely on the internal Docker network on port 8081 without exposing unthrottled ports to the host.
+
+To stop:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml down
 ```
 
 ---
@@ -332,7 +404,12 @@ dw-playground-pro/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── docker-compose.cloudflared.yml  ← optional Cloudflare Tunnel sidecar
+├── docker-compose.nginx.yml        ← optional Nginx spike guard sidecar
+├── nginx.conf.template             ← Nginx rate limit & subpath template
 ├── build.sh / build.ps1
+├── deploy-direct.sh / .ps1         ← launch standalone container
+├── deploy-cloudflared.sh / .ps1    ← launch with Cloudflare Tunnel
+├── deploy-nginx.sh / .ps1          ← launch with Nginx spike guard
 ├── pom.xml
 ├── mule-artifact.json
 ├── src/main/mule/app.xml
@@ -341,3 +418,14 @@ dw-playground-pro/
 ├── license/                  ← place .lic here for EE (gitignored)
 └── mule-runtime/             ← extract Mule runtime here (gitignored)
 ```
+
+---
+
+## License & Attribution
+
+This project is licensed under the [MIT License](LICENSE.md).
+
+### Attribution Guidelines
+You are free to use, modify, distribute, or fork this software. If you use, fork, or build upon this project, please provide attribution by linking back to:
+- **Repository:** [DataWeave Playground Pro](https://github.com/mradiii/dw-playground-pro)
+- **Author:** [Aditya (MrAdiii)](https://www.linkedin.com/in/mradiii/)

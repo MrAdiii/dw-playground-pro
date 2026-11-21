@@ -138,30 +138,39 @@
     align-items: center;
     gap: 10px;
     font-weight: 700;
-    font-size: 14.5px;
-    letter-spacing: -0.01em;
     user-select: none;
   }
   .brand-logo {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
+    flex-shrink: 0;
     border-radius: 7px;
     background: var(--accent-subtle);
     color: var(--accent);
     border: 1px solid var(--accent);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .brand-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .brand-title {
     color: var(--text);
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     white-space: nowrap;
   }
   .brand-badge {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--accent);
     background: var(--accent-subtle);
@@ -283,6 +292,104 @@
     font-weight: 600;
   }
   .btn-sm svg { width: 13px; height: 13px; fill: currentColor; }
+  .btn-sm.btn-icon {
+    padding: 3px 6px;
+    min-width: 26px;
+    justify-content: center;
+    gap: 0;
+  }
+
+  /* Play / Run Button */
+  .btn-run {
+    background: var(--accent);
+    color: #042f2c;
+    border-color: var(--accent);
+    font-weight: 700;
+    gap: 5px;
+    padding: 3px 9px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.15s ease;
+  }
+  .btn-run:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #042f2c;
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+  .btn-run svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+  }
+
+  /* Live / Manual Mode Toggle Switch */
+  .mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-sub);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 7px 2px 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: inherit;
+    line-height: 1;
+    height: 24px;
+  }
+  .mode-switch:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .mode-switch-track {
+    width: 22px;
+    height: 12px;
+    background: var(--border);
+    border-radius: 999px;
+    position: relative;
+    transition: background-color 0.2s ease;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .mode-switch-thumb {
+    width: 8px;
+    height: 8px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+  }
+  .mode-switch.is-live {
+    border-color: rgba(45, 212, 191, 0.4);
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+  .mode-switch.is-live .mode-switch-track {
+    background: var(--accent);
+  }
+  .mode-switch.is-live .mode-switch-thumb {
+    transform: translateX(10px);
+  }
+  :root[data-theme="dark"] .mode-switch.is-live .mode-switch-thumb {
+    background: #042f2c;
+  }
+  :root[data-theme="light"] .mode-switch.is-live .mode-switch-thumb {
+    background: #ffffff;
+  }
+  .mode-switch-text {
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+    font-size: 11px;
+    font-weight: 600;
+  }
 
   /* --- Main 3-Pane Layout with Draggable Splitters --- */
   main {
@@ -304,6 +411,9 @@
     background: var(--panel);
     overflow: hidden;
     position: relative;
+  }
+  main:not(.is-vertical) .pane {
+    min-width: 170px !important;
   }
 
   /* Sub-panes inside Input Pane */
@@ -347,10 +457,10 @@
     opacity: 0.35;
     transition: all 0.2s ease;
   }
-  .resizer-sub:hover, .resizer-sub.dragging {
+  .resizer-sub.dragging {
     background: var(--resizer-hover);
   }
-  .resizer-sub:hover .resizer-grip-sub, .resizer-sub.dragging .resizer-grip-sub {
+  .resizer-sub.dragging .resizer-grip-sub {
     opacity: 1;
     background: #ffffff;
     width: 44px;
@@ -384,13 +494,49 @@
     opacity: 0.35;
     transition: all 0.2s ease;
   }
-  .resizer:hover, .resizer.dragging {
+  .resizer.dragging {
     background: var(--resizer-hover);
   }
-  .resizer:hover .resizer-grip, .resizer.dragging .resizer-grip {
+  .resizer.dragging .resizer-grip {
     opacity: 1;
     background: #ffffff;
     height: 38px;
+  }
+
+  @media (hover: hover) {
+    .resizer-sub:hover {
+      background: var(--resizer-hover);
+    }
+    .resizer-sub:hover .resizer-grip-sub {
+      opacity: 1;
+      background: #ffffff;
+      width: 44px;
+    }
+    .resizer:hover {
+      background: var(--resizer-hover);
+    }
+    .resizer:hover .resizer-grip {
+      opacity: 1;
+      background: #ffffff;
+      height: 38px;
+    }
+  }
+
+  /* Header Error Badge */
+  .badge-error {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--err);
+    background: var(--err-bg);
+    border: 1px solid var(--err);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: system-ui, -apple-system, sans-serif;
   }
 
   /* Pane Headers */
@@ -739,7 +885,7 @@
     height: 32px;
     overflow: hidden;
   }
-  .footer-github-btn {
+  .footer-social-btn, .footer-github-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -754,13 +900,13 @@
     text-decoration: none;
     transition: all 0.15s ease;
   }
-  .footer-github-btn:hover {
+  .footer-social-btn:hover, .footer-github-btn:hover {
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-subtle);
     transform: translateY(-1px);
   }
-  .footer-github-btn svg {
+  .footer-social-btn svg, .footer-github-btn svg {
     width: 13px;
     height: 13px;
     fill: currentColor;
@@ -777,33 +923,130 @@
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
-    min-height: 100px !important;
     flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-height: 140px !important;
+    height: auto !important;
+    transition: flex 0.2s ease, min-height 0.2s ease, height 0.2s ease;
   }
-  main.is-vertical .resizer {
-    flex: 0 0 8px !important;
-    width: 100% !important;
-    height: 8px !important;
-    cursor: row-resize !important;
-  }
-  main.is-vertical .resizer::after {
-    inset: -5px 0 !important;
-  }
-  main.is-vertical .resizer-grip {
-    width: 32px !important;
-    height: 3px !important;
-  }
-  main.is-vertical .resizer:hover .resizer-grip,
-  main.is-vertical .resizer.dragging .resizer-grip {
-    width: 48px !important;
-    height: 4px !important;
+  main.is-vertical .resizer,
+  main.is-vertical .resizer-sub {
+    display: none !important;
   }
 
-  @media (max-width: 600px) {
-    header { padding: 8px 12px; }
-    .brand-title { display: none; }
+  /* Pane collapse/expand chevron toggle */
+  .btn-pane-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin-right: 2px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .btn-pane-toggle:hover {
+    color: var(--text);
+    background: var(--btn-hover);
+  }
+  .chevron-icon {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    transition: transform 0.2s ease;
+    pointer-events: none;
+  }
+  #subpane-vars .pane-head {
+    cursor: pointer;
+    user-select: none;
+  }
+  #subpane-vars .pane-head button:not(#toggle-vars),
+  #subpane-vars .pane-head select,
+  #subpane-vars .pane-head input,
+  #subpane-vars .pane-head .seg {
+    cursor: default;
+  }
+  #subpane-vars #toggle-vars {
+    display: inline-flex !important;
+  }
+  #subpane-vars.collapsed {
+    flex: 0 0 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    overflow: hidden !important;
+  }
+  #subpane-vars.collapsed .pane-body,
+  #subpane-vars.collapsed .vars-actions {
+    display: none !important;
+  }
+  #subpane-vars.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+  }
+  #pane-input.vars-collapsed #resizer-vars {
+    display: none !important;
+  }
+  #pane-input.vars-collapsed #subpane-payload {
+    flex: 1 1 auto !important;
+    height: calc(100% - 38px) !important;
+    min-height: 120px !important;
+  }
+  main.is-vertical .btn-pane-toggle {
+    display: inline-flex;
+  }
+
+  /* Collapsed state for accordion in vertical mode */
+  main.is-vertical .pane.collapsed {
+    flex: 0 0 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    overflow: hidden !important;
+  }
+  main.is-vertical .pane.collapsed .pane-body,
+  main.is-vertical .pane.collapsed #subpane-vars,
+  main.is-vertical .pane.collapsed .resizer-sub {
+    display: none !important;
+  }
+  main.is-vertical .pane.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+  }
+  main.is-vertical .pane-head {
+    cursor: pointer;
+  }
+  main.is-vertical .pane-head button,
+  main.is-vertical .pane-head select,
+  main.is-vertical .pane-head input,
+  main.is-vertical .pane-head .seg {
+    cursor: default;
+  }
+
+  @media (max-width: 680px) {
+    header { padding: 6px 10px; }
+    .brand { gap: 8px; }
+    .brand-text {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+    .brand-title {
+      font-size: 13px;
+      line-height: 1.1;
+    }
+    .brand-badge {
+      font-size: 8.5px;
+      padding: 0 5px;
+      line-height: 1.2;
+    }
     footer { font-size: 10px; gap: 8px; padding: 6px 12px; }
     #engine { display: none; }
+    .pane-head { padding: 6px 8px; gap: 6px; }
+    .pane-head .label { font-size: 11.5px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -911,15 +1154,198 @@
   li.CodeMirror-hint-active .dw-hint-doc {
     color: var(--text);
   }
+
+  /* Pop-up Documentation Flyout & Hover Tooltip */
+  .dw-doc-flyout,
+  .dw-hover-tooltip {
+    position: fixed;
+    z-index: 100000;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    max-height: 480px;
+    background: var(--panel, #0e1520);
+    border: 1px solid var(--border-hover, #334155);
+    border-radius: 8px;
+    box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text, #e2e8f0);
+    padding: 0;
+    display: none;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+    animation: dwDocFadeIn 0.12s ease-out;
+  }
+
+  @keyframes dwDocFadeIn {
+    from { opacity: 0; transform: translateY(2px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .dw-doc-body {
+    padding: 12px 14px;
+    max-height: 480px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .dw-doc-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border, #1e293b);
+  }
+
+  .dw-doc-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .dw-doc-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent, #2dd4bf);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dw-doc-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .dw-doc-mod {
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: var(--text-faint, #64748b);
+    background: var(--btn-bg, #172234);
+    border: 1px solid var(--border, #1e293b);
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .dw-doc-sig-box {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--border, #1e293b);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #38bdf8;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .dw-doc-desc {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text, #e2e8f0);
+    margin-bottom: 10px;
+  }
+
+  .dw-doc-section {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border, #1e293b);
+  }
+
+  .dw-doc-section-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-faint, #64748b);
+    margin-bottom: 6px;
+  }
+
+  .dw-doc-params {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    margin-bottom: 6px;
+  }
+
+  .dw-doc-params td {
+    padding: 3px 6px 3px 0;
+    vertical-align: top;
+  }
+
+  .dw-doc-param-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 600;
+    color: #fbbf24;
+    white-space: nowrap;
+  }
+
+  .dw-doc-param-type {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #a78bfa;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .dw-doc-param-desc {
+    color: var(--text-muted, #94a3b8);
+    line-height: 1.35;
+  }
+
+  .dw-doc-returns {
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dw-doc-returns code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #34d399;
+    font-size: 11.5px;
+  }
+
+  .dw-doc-example {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border, #1e293b);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: #e2e8f0;
+    overflow-x: auto;
+    white-space: pre;
+  }
 </style>
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <div class="brand-logo">{ }</div>
-    <span class="brand-title">DataWeave</span>
-    <span class="brand-badge">Playground Pro</span>
+    <div class="brand-logo">&#123;&nbsp;&#125;</div>
+    <div class="brand-text">
+      <span class="brand-title">DataWeave</span>
+      <span class="brand-badge">Playground Pro</span>
+    </div>
   </div>
 
   <div class="header-actions">
@@ -931,7 +1357,18 @@
 
     <!-- Reset Layout Button -->
     <button type="button" id="btn-reset-layout" class="icon-btn" title="Reset panel dimensions (or double-click resizers)">
-      <svg viewBox="0 0 24 24"><path d="M10 3H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm10 0h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM10 13H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1zm10 0h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1z"/></svg>
+      <svg viewBox="0 0 24 24">
+        <mask id="mask-reset-layout">
+          <rect width="24" height="24" fill="white"/>
+          <circle cx="15.5" cy="14" r="7.8" fill="black"/>
+        </mask>
+        <g mask="url(#mask-reset-layout)" opacity="0.45">
+          <rect x="2" y="3" width="5.2" height="18" rx="1"/>
+          <rect x="9.4" y="3" width="5.2" height="18" rx="1"/>
+          <rect x="16.8" y="3" width="5.2" height="18" rx="1"/>
+        </g>
+        <path d="M22 14c0 3.59-2.91 6.5-6.5 6.5a6.49 6.49 0 0 1-6.14-4.38h1.83a4.75 4.75 0 0 0 4.31 2.63 4.75 4.75 0 1 0-4.64-5.75h1.76L12 9.5 8.5 13h2.58A6.5 6.5 0 0 1 22 14z"/>
+      </svg>
     </button>
 
     <!-- Theme Toggle (Dark / Light) -->
@@ -946,14 +1383,21 @@
 
 <main id="main-container">
   <!-- 1. INPUT PANE (Payload & Vars with internal vertical splitter) -->
-  <section class="pane" id="pane-input">
+  <section class="pane vars-collapsed" id="pane-input">
     <!-- Payload sub-pane -->
     <div class="sub-pane" id="subpane-payload">
       <div class="pane-head">
+        <button type="button" class="btn-pane-toggle" id="toggle-input" title="Toggle Input Section" aria-label="Toggle Input Section">
+          <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
         <span class="label">Input &middot; Payload</span>
         <span class="grow"></span>
-        <button type="button" id="btn-format-in" class="btn-sm" title="Prettify Payload">Format</button>
-        <button type="button" id="btn-clear-in" class="btn-sm" title="Clear Payload">Clear</button>
+        <button type="button" id="btn-format-in" class="btn-sm btn-icon" title="Prettify Payload">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 4h10v2H4V9zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/></svg>
+        </button>
+        <button type="button" id="btn-paste-in" class="btn-sm btn-icon" title="Paste Payload from Clipboard">
+          <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+        </button>
         <select id="in-mime" aria-label="Input format">
           <option value="application/json">JSON</option>
           <option value="application/xml">XML</option>
@@ -973,13 +1417,24 @@
     </div>
 
     <!-- Variables sub-pane -->
-    <div class="sub-pane" id="subpane-vars">
+    <div class="sub-pane collapsed" id="subpane-vars">
       <div class="pane-head">
+        <button type="button" class="btn-pane-toggle" id="toggle-vars" title="Toggle Variables Section" aria-label="Toggle Variables Section">
+          <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
         <span class="label">Variables</span>
         <span class="grow"></span>
-        <div class="seg">
-          <button type="button" id="mode-form" class="seg-btn active">Form</button>
-          <button type="button" id="mode-json" class="seg-btn">JSON</button>
+        <div class="vars-actions" style="display:flex; align-items:center; gap:5px;">
+          <button type="button" id="btn-paste-vars" class="btn-sm btn-icon" title="Paste Variables JSON">
+            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+          </button>
+          <button type="button" id="btn-copy-vars" class="btn-sm btn-icon" title="Copy Variables JSON">
+            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          </button>
+          <div class="seg">
+            <button type="button" id="mode-form" class="seg-btn active">Form</button>
+            <button type="button" id="mode-json" class="seg-btn">JSON</button>
+          </div>
         </div>
       </div>
       <div class="pane-body">
@@ -1002,11 +1457,26 @@
   <!-- 2. SCRIPT PANE (DataWeave 2.0) -->
   <section class="pane" id="pane-script">
     <div class="pane-head">
+      <button type="button" class="btn-pane-toggle" id="toggle-script" title="Toggle Transformation Section" aria-label="Toggle Transformation Section">
+        <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
       <span class="label">Transformation &middot; DataWeave 2.0</span>
       <span class="grow"></span>
-      <button type="button" id="btn-copy-script" class="btn-sm" title="Copy DataWeave Script">
+      <button type="button" id="btn-run" class="btn-sm btn-run" title="Run Transformation (Ctrl+Enter)" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span>Run</span>
+      </button>
+      <button type="button" id="mode-toggle" class="mode-switch is-live" role="switch" aria-checked="true" title="Toggle Live / Manual execution mode">
+        <span class="mode-switch-track">
+          <span class="mode-switch-thumb"></span>
+        </span>
+        <span class="mode-switch-text" id="mode-text">live</span>
+      </button>
+      <button type="button" id="btn-paste-script" class="btn-sm btn-icon" title="Paste DataWeave Script">
+        <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+      </button>
+      <button type="button" id="btn-copy-script" class="btn-sm btn-icon" title="Copy DataWeave Script">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        <span>Copy</span>
       </button>
     </div>
     <div class="pane-body">
@@ -1022,12 +1492,14 @@
   <!-- 3. OUTPUT PANE -->
   <section class="pane" id="pane-output">
     <div class="pane-head">
+      <button type="button" class="btn-pane-toggle" id="toggle-output" title="Toggle Output Section" aria-label="Toggle Output Section">
+        <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
       <span class="label">Output</span>
+      <span id="output-error-badge" class="badge-error" style="display:none">Runtime Error</span>
       <span class="grow"></span>
-      <button type="button" id="btn-format-out" class="btn-sm" title="Prettify Output">Format</button>
-      <button type="button" id="btn-copy-out" class="btn-sm" title="Copy Output to Clipboard">
+      <button type="button" id="btn-copy-out" class="btn-sm btn-icon" title="Copy Output to Clipboard">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        <span>Copy</span>
       </button>
       <select id="out-mime" aria-label="Output highlight">
         <option value="application/json">JSON</option>
@@ -1040,7 +1512,6 @@
     <div class="pane-body">
       <textarea id="out" class="ed" spellcheck="false" readonly></textarea>
       <div id="errbox" class="errbox">
-        <div class="err-title">Runtime Error</div>
         <div id="err-text"></div>
       </div>
     </div>
@@ -1054,11 +1525,14 @@
 </div>
 
 <footer>
-  <span>POST&nbsp;/api/transform</span>
-  <span>Mule&nbsp;:8081</span>
-  <span id="engine" style="margin-left:auto">live &middot; auto-runs as you type</span>
-  <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: MrAdiii/dw-playground-pro">
+  <span id="engine">live &middot; auto-runs as you type</span>
+  <span class="grow" style="flex:1"></span>
+  <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: dw-playground-pro">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    <span>DataWeave Playground Pro</span>
+  </a>
+  <a href="https://www.linkedin.com/in/mradiii/" target="_blank" rel="noopener" class="footer-social-btn" title="LinkedIn: MrAdiii">
+    <svg viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
     <span>MrAdiii</span>
   </a>
 </footer>
@@ -1149,7 +1623,11 @@
           lineNumbers: true,
           lineWrapping: true,
           indentUnit: 2,
-          tabSize: 2
+          tabSize: 2,
+          extraKeys: {
+            "Ctrl-Enter": function() { run(); },
+            "Cmd-Enter": function() { run(); }
+          }
         }, opts || {}));
 
         return {
@@ -1182,8 +1660,15 @@
   var edSc   = makeEditor(document.getElementById("script"), {mode: hasCM ? "dataweave" : null});
   var edOut  = makeEditor(document.getElementById("out"),    {mode: modeFor(outMime.value), readOnly: true});
 
-  if (!hasCM) {
-    document.getElementById("engine").textContent = "live · plain editor (CodeMirror unavailable)";
+  var engineEl = document.getElementById("engine");
+  function updateEngineFooterText() {
+    if (!engineEl) return;
+    var suffix = hasCM ? "" : " (CodeMirror unavailable)";
+    if (isLiveMode) {
+      engineEl.textContent = "live \u00B7 auto-runs as you type" + suffix;
+    } else {
+      engineEl.textContent = "manual \u00B7 click Run to transform" + suffix;
+    }
   }
 
   // Initialize DataWeave Autocomplete (loaded from autocomplete.js)
@@ -1373,19 +1858,12 @@
 
   // Format button visibility based on mime type
   var btnFormatIn = document.getElementById("btn-format-in");
-  var btnFormatOut = document.getElementById("btn-format-out");
 
   function syncFormatButtonVisibility() {
     var inIsText = inMime.value === "text/plain";
     btnFormatIn.style.display = inIsText ? "none" : "inline-flex";
     if (!inIsText) {
       btnFormatIn.title = "Prettify " + getFormatLabel(inMime.value) + " Payload";
-    }
-
-    var outIsText = outMime.value === "text/plain";
-    btnFormatOut.style.display = outIsText ? "none" : "inline-flex";
-    if (!outIsText) {
-      btnFormatOut.title = "Prettify " + getFormatLabel(outMime.value) + " Output";
     }
   }
 
@@ -1399,13 +1877,33 @@
     }
   });
 
-  btnFormatOut.addEventListener("click", function(){
-    try {
-      var formatted = formatDocument(edOut.getValue(), outMime.value);
-      edOut.setValue(formatted);
-      showToast(getFormatLabel(outMime.value) + " formatted");
-    } catch(e) {
-      showToast(e.message);
+  // Paste Payload Handler
+  document.getElementById("btn-paste-in").addEventListener("click", function(){
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        edIn.setValue(text || "");
+        schedule();
+        showToast("Payload pasted from clipboard");
+      }).catch(function(err){
+        showToast("Clipboard read failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
+    }
+  });
+
+  // Paste & Copy Script Handlers
+  document.getElementById("btn-paste-script").addEventListener("click", function(){
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        edSc.setValue(text || "");
+        schedule();
+        showToast("Script pasted from clipboard");
+      }).catch(function(err){
+        showToast("Clipboard read failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
     }
   });
 
@@ -1417,9 +1915,40 @@
     copyText(edOut.getValue(), "Output");
   });
 
-  document.getElementById("btn-clear-in").addEventListener("click", function(){
-    edIn.setValue("");
-    schedule();
+  // Copy & Paste Variables Handlers
+  document.getElementById("btn-copy-vars").addEventListener("click", function(e){
+    e.stopPropagation();
+    copyText(JSON.stringify(currentVarsObject(), null, 2), "Variables");
+  });
+
+  document.getElementById("btn-paste-vars").addEventListener("click", function(e){
+    e.stopPropagation();
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        text = (text || "").trim();
+        if (!text) {
+          showToast("Clipboard is empty");
+          return;
+        }
+        try {
+          var parsed = JSON.parse(text);
+          if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+            showToast("Clipboard does not contain a JSON object");
+            return;
+          }
+          buildFormFromObject(parsed);
+          edVars.setValue(JSON.stringify(parsed, null, 2));
+          schedule();
+          showToast("Variables pasted from clipboard");
+        } catch(err) {
+          showToast("Invalid JSON in clipboard: " + err.message);
+        }
+      }).catch(function(err){
+        showToast("Clipboard access failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
+    }
   });
 
   // ==========================================
@@ -1431,8 +1960,37 @@
   var resizerVars = document.getElementById("resizer-vars");
 
   var DEFAULT_VARS_SPLIT = 60; // 60% payload, 40% vars
+  var isVarsCollapsed = true;
+
+  function updateVarsLayout() {
+    if (isVarsCollapsed) {
+      subpaneVars.classList.add("collapsed");
+      paneInput.classList.add("vars-collapsed");
+      subpanePayload.style.flex = "1 1 auto";
+      subpanePayload.style.height = "calc(100% - 38px)";
+      subpaneVars.style.flex = "0 0 38px";
+      subpaneVars.style.height = "38px";
+    } else {
+      subpaneVars.classList.remove("collapsed");
+      paneInput.classList.remove("vars-collapsed");
+      restoreVarsSplit();
+    }
+    edIn.refresh();
+    edVars.refresh();
+  }
+
+  function setupVarsToggle() {
+    var varsHead = subpaneVars.querySelector(".pane-head");
+    if (!varsHead) return;
+    varsHead.addEventListener("click", function(e){
+      if (e.target.closest("button:not(#toggle-vars), input, .seg, a")) return;
+      isVarsCollapsed = !isVarsCollapsed;
+      updateVarsLayout();
+    });
+  }
 
   function applyVarsSplit(pPayload, save) {
+    if (isVarsCollapsed) return;
     pPayload = Math.max(15, Math.min(pPayload, 85));
     var pVars = 100 - pPayload;
 
@@ -1448,6 +2006,10 @@
   }
 
   function restoreVarsSplit() {
+    if (isVarsCollapsed) {
+      updateVarsLayout();
+      return;
+    }
     var saved = parseFloat(localStorage.getItem("dw_vars_split"));
     if (!isNaN(saved) && saved >= 15 && saved <= 85) {
       applyVarsSplit(saved, false);
@@ -1519,12 +2081,22 @@
       mainContainer.classList.add("is-vertical");
       resizer1.setAttribute("aria-orientation", "horizontal");
       resizer2.setAttribute("aria-orientation", "horizontal");
+      paneInput.style.flex = "";
+      paneInput.style.width = "";
+      paneInput.style.height = "";
+      paneSc.style.flex = "";
+      paneSc.style.width = "";
+      paneSc.style.height = "";
+      paneOut.style.flex = "";
+      paneOut.style.width = "";
+      paneOut.style.height = "";
     } else {
       mainContainer.classList.remove("is-vertical");
       resizer1.setAttribute("aria-orientation", "vertical");
       resizer2.setAttribute("aria-orientation", "vertical");
+      [paneInput, paneSc, paneOut].forEach(function(p){ p.classList.remove("collapsed"); });
+      restoreLayout();
     }
-    restoreLayout();
     restoreVarsSplit();
   }
 
@@ -1605,7 +2177,8 @@
 
   btnResetLayout.addEventListener("click", function(){
     if (isVertical()) {
-      applyVertical(DEFAULT_V_PERCENTAGES[0], DEFAULT_V_PERCENTAGES[1], DEFAULT_V_PERCENTAGES[2], true);
+      [paneInput, paneSc, paneOut].forEach(function(p){ p.classList.remove("collapsed"); });
+      refreshAllEditors();
     } else {
       applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
     }
@@ -1615,17 +2188,15 @@
 
   [resizer1, resizer2].forEach(function(r){
     r.addEventListener("dblclick", function(){
-      if (isVertical()) {
-        applyVertical(DEFAULT_V_PERCENTAGES[0], DEFAULT_V_PERCENTAGES[1], DEFAULT_V_PERCENTAGES[2], true);
-      } else {
-        applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
-      }
+      if (isVertical()) return;
+      applyHorizontal(DEFAULT_H_PERCENTAGES[0], DEFAULT_H_PERCENTAGES[1], DEFAULT_H_PERCENTAGES[2], true);
       showToast("Layout reset to default");
     });
   });
 
   function setupResizer(resizerEl, isFirstSplitter) {
     resizerEl.addEventListener("pointerdown", function(e){
+      if (isVertical()) return;
       e.preventDefault();
 
       var vert = isVertical();
@@ -1646,7 +2217,7 @@
         if (isFirstSplitter) {
           var newIn = currentIn + delta;
           var newSc = currentSc - delta;
-          var minPx = vert ? 90 : 130;
+          var minPx = vert ? 90 : 180;
           if (newIn < minPx || newSc < minPx) return;
 
           var p1 = (newIn / totalDimension) * 100;
@@ -1657,7 +2228,7 @@
         } else {
           var newSc2 = currentSc + delta;
           var newOut2 = currentOut - delta;
-          var minPx2 = vert ? 90 : 130;
+          var minPx2 = vert ? 90 : 180;
           if (newSc2 < minPx2 || newOut2 < minPx2) return;
 
           var p1_ = (currentIn / totalDimension) * 100;
@@ -1734,9 +2305,24 @@
     });
   }
 
+  function formatFormValue(val) {
+    if (val === undefined || val === null) return "";
+    if (typeof val === "string") {
+      try {
+        var parsed = JSON.parse(val);
+        if (typeof parsed !== "string") {
+          return JSON.stringify(val);
+        }
+      } catch(e) {}
+      return val;
+    }
+    if (typeof val === "number" || typeof val === "boolean") return String(val);
+    try { return JSON.stringify(val); } catch(e) { return String(val); }
+  }
+
   function buildFormFromObject(o) {
     rowsEl.innerHTML = "";
-    Object.keys(o || {}).forEach(function(k){ addRow(k, JSON.stringify(o[k])); });
+    Object.keys(o || {}).forEach(function(k){ addRow(k, formatFormValue(o[k])); });
     if (!rowsEl.children.length) addRow("", "");
   }
 
@@ -1807,9 +2393,11 @@
 
   var errbox = document.getElementById("errbox");
   var errText = document.getElementById("err-text");
+  var outErrBadge = document.getElementById("output-error-badge");
 
   function showOutput(t) {
     errbox.classList.remove("show");
+    if (outErrBadge) outErrBadge.style.display = "none";
     edOut.setMode(modeFor(outMime.value));
     edOut.setValue(t);
   }
@@ -1817,6 +2405,7 @@
   function showError(t) {
     errText.textContent = t;
     errbox.classList.add("show");
+    if (outErrBadge) outErrBadge.style.display = "inline-flex";
   }
 
   // ==========================================
@@ -1851,14 +2440,73 @@
   }
 
   // ==========================================
-  // 10. LIVE DEBOUNCED TRANSFORMATION RUNNER
+  // 10. TRANSFORMATION RUNNER & LIVE/MANUAL MODE
   // ==========================================
   var timer = null, controller = null;
+  var savedLiveMode = null;
+  try {
+    savedLiveMode = localStorage.getItem("dw_live_mode");
+  } catch(e) {}
+  var isLiveMode = savedLiveMode !== null ? (savedLiveMode === "true") : true; // default true (live) if not set
+  var btnRun = document.getElementById("btn-run");
+  var modeToggle = document.getElementById("mode-toggle");
+  var modeText = document.getElementById("mode-text");
+
+  function setLiveMode(live, triggerRun, persist) {
+    isLiveMode = !!live;
+    if (persist !== false) {
+      try {
+        localStorage.setItem("dw_live_mode", isLiveMode ? "true" : "false");
+      } catch(e) {}
+    }
+    if (isLiveMode) {
+      if (modeToggle) {
+        modeToggle.classList.add("is-live");
+        modeToggle.setAttribute("aria-checked", "true");
+      }
+      if (modeText) modeText.textContent = "live";
+      if (btnRun) btnRun.style.display = "none";
+    } else {
+      if (modeToggle) {
+        modeToggle.classList.remove("is-live");
+        modeToggle.setAttribute("aria-checked", "false");
+      }
+      if (modeText) modeText.textContent = "manual";
+      if (btnRun) btnRun.style.display = "inline-flex";
+    }
+    updateEngineFooterText();
+    if (isLiveMode && triggerRun) {
+      run();
+    }
+  }
+
+  if (modeToggle) {
+    modeToggle.addEventListener("click", function(e){
+      e.stopPropagation();
+      setLiveMode(!isLiveMode, true, true);
+    });
+  }
+
+  if (btnRun) {
+    btnRun.addEventListener("click", function(e){
+      e.stopPropagation();
+      run();
+    });
+  }
+
+  // Keyboard shortcut Ctrl+Enter / Cmd+Enter to manually trigger run
+  document.addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      run();
+    }
+  });
 
   function schedule() {
+    if (!isLiveMode) return;
     clearTimeout(timer);
     setStatus("running");
-    timer = setTimeout(run, 350);
+    timer = setTimeout(run, 1000);
   }
 
   async function run() {
@@ -1876,7 +2524,7 @@
 
     var startTime = performance.now();
     try {
-      var res = await fetch("/api/transform", {
+      var res = await fetch("./api/transform", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
@@ -1887,6 +2535,9 @@
       if (res.ok) {
         showOutput(text);
         setStatus("ok", latency);
+      } else if (res.status === 429) {
+        showError("⚠️ Rate limit reached (Spike guard active).\n\n" + text);
+        setStatus("error", latency);
       } else {
         showError(text);
         setStatus("error", latency);
@@ -1918,13 +2569,13 @@
   inMime.addEventListener("change", function(){
     edIn.setMode(modeFor(inMime.value));
     syncFormatButtonVisibility();
-    run();
+    if (isLiveMode) run();
   });
 
   outMime.addEventListener("change", function(){
     setScriptOutputType(outMime.value);
     syncFormatButtonVisibility();
-    run();
+    if (isLiveMode) run();
   });
 
   // Warn on page refresh / reload / tab close so user doesn't lose inputs accidentally
@@ -1935,10 +2586,29 @@
     return msg;
   });
 
-  // Init layout, vars split, format buttons and theme
+  function setupCollapsiblePanes() {
+    ["pane-input", "pane-script", "pane-output"].forEach(function(id){
+      var paneEl = document.getElementById(id);
+      if (!paneEl) return;
+      var head = paneEl.querySelector(".pane-head");
+      if (!head) return;
+      head.addEventListener("click", function(e){
+        if (!isVertical()) return;
+        if (e.target.closest("button:not(.btn-pane-toggle), select, input, .seg, a")) return;
+        paneEl.classList.toggle("collapsed");
+        setTimeout(refreshAllEditors, 50);
+      });
+    });
+  }
+
+  // Init layout, vars split, format buttons, theme and execution mode
   applyTheme(currentTheme);
   updateLayoutMode();
+  updateVarsLayout();
+  setupVarsToggle();
+  setupCollapsiblePanes();
   syncFormatButtonVisibility();
+  setLiveMode(isLiveMode, false, false);
 
   setTimeout(function(){
     refreshAllEditors();

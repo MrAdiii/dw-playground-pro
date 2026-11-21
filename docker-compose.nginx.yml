@@ -1,0 +1,22 @@
+services:
+  dw-playground-pro:
+    ports: !reset []
+    expose:
+      - "8081"
+
+  dw-playground-nginx:
+    image: nginx:alpine
+    container_name: dw-playground-nginx
+    restart: unless-stopped
+    ports:
+      - "${SERVICE_PORT:-8091}:80"
+    environment:
+      - RATE_LIMIT_RPS=${RATE_LIMIT_RPS:-10r/m}
+      - RATE_LIMIT_BURST=${RATE_LIMIT_BURST:-5}
+      - RATE_LIMIT_RETRY_AFTER=${RATE_LIMIT_RETRY_AFTER:-60}
+      - CLIENT_MAX_BODY_SIZE=${CLIENT_MAX_BODY_SIZE:-35M}
+      - NGINX_ENVSUBST_FILTER=RATE_LIMIT|CLIENT_MAX
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - dw-playground-pro
