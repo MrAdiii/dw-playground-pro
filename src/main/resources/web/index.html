@@ -801,6 +801,107 @@
     .pill.running .dot { animation: none; }
     * { transition: none !important; }
   }
+
+  /* Autocomplete Popup (CodeMirror Show-Hint) */
+  .CodeMirror-hints {
+    position: absolute;
+    z-index: 9999;
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    background: var(--panel) !important;
+    border: 1px solid var(--border-hover) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.5), 0 6px 14px -2px rgba(0, 0, 0, 0.3) !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 12px !important;
+    min-width: 290px;
+    max-width: 520px;
+    max-height: 240px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    backdrop-filter: blur(12px);
+  }
+
+  .CodeMirror-hint {
+    margin: 1px 0;
+    padding: 4px 8px !important;
+    border-radius: 5px !important;
+    white-space: pre;
+    color: var(--text) !important;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transition: background-color 0.1s ease, color 0.1s ease;
+  }
+
+  li.CodeMirror-hint-active {
+    background: var(--btn-hover) !important;
+    color: var(--accent) !important;
+    outline: 1px solid var(--accent-glow) !important;
+  }
+
+  .dw-hint-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .dw-hint-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 1px 4.5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .dw-badge-fn    { color: #2dd4bf; background: rgba(45, 212, 191, 0.16); }
+  .dw-badge-kw    { color: #a78bfa; background: rgba(167, 139, 250, 0.16); }
+  .dw-badge-var   { color: #fbbf24; background: rgba(251, 191, 36, 0.16); }
+  .dw-badge-field { color: #38bdf8; background: rgba(56, 189, 248, 0.16); }
+  .dw-badge-mime  { color: #f472b6; background: rgba(244, 114, 182, 0.16); }
+  .dw-badge-mod   { color: #60a5fa; background: rgba(96, 165, 250, 0.16); }
+  .dw-badge-snip  { color: #34d399; background: rgba(52, 211, 153, 0.16); }
+  .dw-badge-type  { color: #fb923c; background: rgba(251, 146, 60, 0.16); }
+
+  .dw-hint-name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dw-hint-mod-tag {
+    font-size: 10px;
+    color: var(--text-faint);
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    padding: 0 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .dw-hint-doc {
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 220px;
+    text-align: right;
+  }
+
+  li.CodeMirror-hint-active .dw-hint-doc {
+    color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -954,6 +1055,7 @@
 </footer>
 
 <script src="editor.js"></script>
+<script src="autocomplete.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1068,6 +1170,11 @@
 
   if (!hasCM) {
     document.getElementById("engine").textContent = "live · plain editor (CodeMirror unavailable)";
+  }
+
+  // Initialize DataWeave Autocomplete (loaded from autocomplete.js)
+  if (window.DataWeaveAutocomplete) {
+    window.DataWeaveAutocomplete.setup(edSc, edVars, edIn, inMime);
   }
 
   // ==========================================

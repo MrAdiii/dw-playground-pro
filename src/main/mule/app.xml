@@ -55,6 +55,10 @@
                 <set-variable variableName="ctype" value="application/javascript" doc:name="ctype"/>
                 <set-payload value='#[readUrl("classpath://web/editor.js", "text/plain")]' doc:name="editor.js"/>
             </when>
+            <when expression='#[attributes.uriParams.asset == "autocomplete.js"]'>
+                <set-variable variableName="ctype" value="application/javascript" doc:name="ctype"/>
+                <set-payload value='#[readUrl("classpath://web/autocomplete.js", "text/plain")]' doc:name="autocomplete.js"/>
+            </when>
             <when expression='#[attributes.uriParams.asset == "editor.css"]'>
                 <set-variable variableName="ctype" value="text/css" doc:name="ctype"/>
                 <set-payload value='#[readUrl("classpath://web/editor.css", "text/plain")]' doc:name="editor.css"/>
