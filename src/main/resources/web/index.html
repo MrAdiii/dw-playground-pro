@@ -292,6 +292,12 @@
     font-weight: 600;
   }
   .btn-sm svg { width: 13px; height: 13px; fill: currentColor; }
+  .btn-sm.btn-icon {
+    padding: 3px 6px;
+    min-width: 26px;
+    justify-content: center;
+    gap: 0;
+  }
 
   /* --- Main 3-Pane Layout with Draggable Splitters --- */
   main {
@@ -313,6 +319,9 @@
     background: var(--panel);
     overflow: hidden;
     position: relative;
+  }
+  main:not(.is-vertical) .pane {
+    min-width: 170px !important;
   }
 
   /* Sub-panes inside Input Pane */
@@ -784,7 +793,7 @@
     height: 32px;
     overflow: hidden;
   }
-  .footer-github-btn {
+  .footer-social-btn, .footer-github-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -799,13 +808,13 @@
     text-decoration: none;
     transition: all 0.15s ease;
   }
-  .footer-github-btn:hover {
+  .footer-social-btn:hover, .footer-github-btn:hover {
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-subtle);
     transform: translateY(-1px);
   }
-  .footer-github-btn svg {
+  .footer-social-btn svg, .footer-github-btn svg {
     width: 13px;
     height: 13px;
     fill: currentColor;
@@ -858,6 +867,42 @@
     height: 15px;
     fill: currentColor;
     transition: transform 0.2s ease;
+    pointer-events: none;
+  }
+  #subpane-vars .pane-head {
+    cursor: pointer;
+    user-select: none;
+  }
+  #subpane-vars .pane-head button:not(#toggle-vars),
+  #subpane-vars .pane-head select,
+  #subpane-vars .pane-head input,
+  #subpane-vars .pane-head .seg {
+    cursor: default;
+  }
+  #subpane-vars #toggle-vars {
+    display: inline-flex !important;
+  }
+  #subpane-vars.collapsed {
+    flex: 0 0 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    overflow: hidden !important;
+  }
+  #subpane-vars.collapsed .pane-body,
+  #subpane-vars.collapsed .vars-actions {
+    display: none !important;
+  }
+  #subpane-vars.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+  }
+  #pane-input.vars-collapsed #resizer-vars {
+    display: none !important;
+  }
+  #pane-input.vars-collapsed #subpane-payload {
+    flex: 1 1 auto !important;
+    height: calc(100% - 38px) !important;
+    min-height: 120px !important;
   }
   main.is-vertical .btn-pane-toggle {
     display: inline-flex;
@@ -1220,7 +1265,18 @@
 
     <!-- Reset Layout Button -->
     <button type="button" id="btn-reset-layout" class="icon-btn" title="Reset panel dimensions (or double-click resizers)">
-      <svg viewBox="0 0 24 24"><path d="M10 3H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm10 0h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM10 13H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1zm10 0h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1z"/></svg>
+      <svg viewBox="0 0 24 24">
+        <mask id="mask-reset-layout">
+          <rect width="24" height="24" fill="white"/>
+          <circle cx="15.5" cy="14" r="7.8" fill="black"/>
+        </mask>
+        <g mask="url(#mask-reset-layout)" opacity="0.45">
+          <rect x="2" y="3" width="5.2" height="18" rx="1"/>
+          <rect x="9.4" y="3" width="5.2" height="18" rx="1"/>
+          <rect x="16.8" y="3" width="5.2" height="18" rx="1"/>
+        </g>
+        <path d="M22 14c0 3.59-2.91 6.5-6.5 6.5a6.49 6.49 0 0 1-6.14-4.38h1.83a4.75 4.75 0 0 0 4.31 2.63 4.75 4.75 0 1 0-4.64-5.75h1.76L12 9.5 8.5 13h2.58A6.5 6.5 0 0 1 22 14z"/>
+      </svg>
     </button>
 
     <!-- Theme Toggle (Dark / Light) -->
@@ -1235,7 +1291,7 @@
 
 <main id="main-container">
   <!-- 1. INPUT PANE (Payload & Vars with internal vertical splitter) -->
-  <section class="pane" id="pane-input">
+  <section class="pane vars-collapsed" id="pane-input">
     <!-- Payload sub-pane -->
     <div class="sub-pane" id="subpane-payload">
       <div class="pane-head">
@@ -1244,8 +1300,12 @@
         </button>
         <span class="label">Input &middot; Payload</span>
         <span class="grow"></span>
-        <button type="button" id="btn-format-in" class="btn-sm" title="Prettify Payload">Format</button>
-        <button type="button" id="btn-clear-in" class="btn-sm" title="Clear Payload">Clear</button>
+        <button type="button" id="btn-format-in" class="btn-sm btn-icon" title="Prettify Payload">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 4h10v2H4V9zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/></svg>
+        </button>
+        <button type="button" id="btn-paste-in" class="btn-sm btn-icon" title="Paste Payload from Clipboard">
+          <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+        </button>
         <select id="in-mime" aria-label="Input format">
           <option value="application/json">JSON</option>
           <option value="application/xml">XML</option>
@@ -1265,13 +1325,24 @@
     </div>
 
     <!-- Variables sub-pane -->
-    <div class="sub-pane" id="subpane-vars">
+    <div class="sub-pane collapsed" id="subpane-vars">
       <div class="pane-head">
+        <button type="button" class="btn-pane-toggle" id="toggle-vars" title="Toggle Variables Section" aria-label="Toggle Variables Section">
+          <svg class="chevron-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
         <span class="label">Variables</span>
         <span class="grow"></span>
-        <div class="seg">
-          <button type="button" id="mode-form" class="seg-btn active">Form</button>
-          <button type="button" id="mode-json" class="seg-btn">JSON</button>
+        <div class="vars-actions" style="display:flex; align-items:center; gap:5px;">
+          <button type="button" id="btn-paste-vars" class="btn-sm btn-icon" title="Paste Variables JSON">
+            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+          </button>
+          <button type="button" id="btn-copy-vars" class="btn-sm btn-icon" title="Copy Variables JSON">
+            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          </button>
+          <div class="seg">
+            <button type="button" id="mode-form" class="seg-btn active">Form</button>
+            <button type="button" id="mode-json" class="seg-btn">JSON</button>
+          </div>
         </div>
       </div>
       <div class="pane-body">
@@ -1299,9 +1370,11 @@
       </button>
       <span class="label">Transformation &middot; DataWeave 2.0</span>
       <span class="grow"></span>
-      <button type="button" id="btn-copy-script" class="btn-sm" title="Copy DataWeave Script">
+      <button type="button" id="btn-paste-script" class="btn-sm btn-icon" title="Paste DataWeave Script">
+        <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4 0.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+      </button>
+      <button type="button" id="btn-copy-script" class="btn-sm btn-icon" title="Copy DataWeave Script">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        <span>Copy</span>
       </button>
     </div>
     <div class="pane-body">
@@ -1323,10 +1396,8 @@
       <span class="label">Output</span>
       <span id="output-error-badge" class="badge-error" style="display:none">Runtime Error</span>
       <span class="grow"></span>
-      <button type="button" id="btn-format-out" class="btn-sm" title="Prettify Output">Format</button>
-      <button type="button" id="btn-copy-out" class="btn-sm" title="Copy Output to Clipboard">
+      <button type="button" id="btn-copy-out" class="btn-sm btn-icon" title="Copy Output to Clipboard">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        <span>Copy</span>
       </button>
       <select id="out-mime" aria-label="Output highlight">
         <option value="application/json">JSON</option>
@@ -1354,8 +1425,12 @@
 <footer>
   <span>POST&nbsp;/api/transform</span>
   <span id="engine" style="margin-left:auto">live &middot; auto-runs as you type</span>
-  <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: MrAdiii/dw-playground-pro">
+  <a href="https://github.com/mradiii/dw-playground-pro" target="_blank" rel="noopener" class="footer-github-btn" title="GitHub: dw-playground-pro">
     <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    <span>DataWeave Playground Pro</span>
+  </a>
+  <a href="https://www.linkedin.com/in/mradiii/" target="_blank" rel="noopener" class="footer-social-btn" title="LinkedIn: MrAdiii">
+    <svg viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
     <span>MrAdiii</span>
   </a>
 </footer>
@@ -1670,19 +1745,12 @@
 
   // Format button visibility based on mime type
   var btnFormatIn = document.getElementById("btn-format-in");
-  var btnFormatOut = document.getElementById("btn-format-out");
 
   function syncFormatButtonVisibility() {
     var inIsText = inMime.value === "text/plain";
     btnFormatIn.style.display = inIsText ? "none" : "inline-flex";
     if (!inIsText) {
       btnFormatIn.title = "Prettify " + getFormatLabel(inMime.value) + " Payload";
-    }
-
-    var outIsText = outMime.value === "text/plain";
-    btnFormatOut.style.display = outIsText ? "none" : "inline-flex";
-    if (!outIsText) {
-      btnFormatOut.title = "Prettify " + getFormatLabel(outMime.value) + " Output";
     }
   }
 
@@ -1696,13 +1764,33 @@
     }
   });
 
-  btnFormatOut.addEventListener("click", function(){
-    try {
-      var formatted = formatDocument(edOut.getValue(), outMime.value);
-      edOut.setValue(formatted);
-      showToast(getFormatLabel(outMime.value) + " formatted");
-    } catch(e) {
-      showToast(e.message);
+  // Paste Payload Handler
+  document.getElementById("btn-paste-in").addEventListener("click", function(){
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        edIn.setValue(text || "");
+        schedule();
+        showToast("Payload pasted from clipboard");
+      }).catch(function(err){
+        showToast("Clipboard read failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
+    }
+  });
+
+  // Paste & Copy Script Handlers
+  document.getElementById("btn-paste-script").addEventListener("click", function(){
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        edSc.setValue(text || "");
+        schedule();
+        showToast("Script pasted from clipboard");
+      }).catch(function(err){
+        showToast("Clipboard read failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
     }
   });
 
@@ -1714,9 +1802,40 @@
     copyText(edOut.getValue(), "Output");
   });
 
-  document.getElementById("btn-clear-in").addEventListener("click", function(){
-    edIn.setValue("");
-    schedule();
+  // Copy & Paste Variables Handlers
+  document.getElementById("btn-copy-vars").addEventListener("click", function(e){
+    e.stopPropagation();
+    copyText(JSON.stringify(currentVarsObject(), null, 2), "Variables");
+  });
+
+  document.getElementById("btn-paste-vars").addEventListener("click", function(e){
+    e.stopPropagation();
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(text){
+        text = (text || "").trim();
+        if (!text) {
+          showToast("Clipboard is empty");
+          return;
+        }
+        try {
+          var parsed = JSON.parse(text);
+          if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+            showToast("Clipboard does not contain a JSON object");
+            return;
+          }
+          buildFormFromObject(parsed);
+          edVars.setValue(JSON.stringify(parsed, null, 2));
+          schedule();
+          showToast("Variables pasted from clipboard");
+        } catch(err) {
+          showToast("Invalid JSON in clipboard: " + err.message);
+        }
+      }).catch(function(err){
+        showToast("Clipboard access failed: " + err.message);
+      });
+    } else {
+      showToast("Clipboard access not supported");
+    }
   });
 
   // ==========================================
@@ -1728,8 +1847,37 @@
   var resizerVars = document.getElementById("resizer-vars");
 
   var DEFAULT_VARS_SPLIT = 60; // 60% payload, 40% vars
+  var isVarsCollapsed = true;
+
+  function updateVarsLayout() {
+    if (isVarsCollapsed) {
+      subpaneVars.classList.add("collapsed");
+      paneInput.classList.add("vars-collapsed");
+      subpanePayload.style.flex = "1 1 auto";
+      subpanePayload.style.height = "calc(100% - 38px)";
+      subpaneVars.style.flex = "0 0 38px";
+      subpaneVars.style.height = "38px";
+    } else {
+      subpaneVars.classList.remove("collapsed");
+      paneInput.classList.remove("vars-collapsed");
+      restoreVarsSplit();
+    }
+    edIn.refresh();
+    edVars.refresh();
+  }
+
+  function setupVarsToggle() {
+    var varsHead = subpaneVars.querySelector(".pane-head");
+    if (!varsHead) return;
+    varsHead.addEventListener("click", function(e){
+      if (e.target.closest("button:not(#toggle-vars), input, .seg, a")) return;
+      isVarsCollapsed = !isVarsCollapsed;
+      updateVarsLayout();
+    });
+  }
 
   function applyVarsSplit(pPayload, save) {
+    if (isVarsCollapsed) return;
     pPayload = Math.max(15, Math.min(pPayload, 85));
     var pVars = 100 - pPayload;
 
@@ -1745,6 +1893,10 @@
   }
 
   function restoreVarsSplit() {
+    if (isVarsCollapsed) {
+      updateVarsLayout();
+      return;
+    }
     var saved = parseFloat(localStorage.getItem("dw_vars_split"));
     if (!isNaN(saved) && saved >= 15 && saved <= 85) {
       applyVarsSplit(saved, false);
@@ -1952,7 +2104,7 @@
         if (isFirstSplitter) {
           var newIn = currentIn + delta;
           var newSc = currentSc - delta;
-          var minPx = vert ? 90 : 130;
+          var minPx = vert ? 90 : 180;
           if (newIn < minPx || newSc < minPx) return;
 
           var p1 = (newIn / totalDimension) * 100;
@@ -1963,7 +2115,7 @@
         } else {
           var newSc2 = currentSc + delta;
           var newOut2 = currentOut - delta;
-          var minPx2 = vert ? 90 : 130;
+          var minPx2 = vert ? 90 : 180;
           if (newSc2 < minPx2 || newOut2 < minPx2) return;
 
           var p1_ = (currentIn / totalDimension) * 100;
@@ -2040,9 +2192,24 @@
     });
   }
 
+  function formatFormValue(val) {
+    if (val === undefined || val === null) return "";
+    if (typeof val === "string") {
+      try {
+        var parsed = JSON.parse(val);
+        if (typeof parsed !== "string") {
+          return JSON.stringify(val);
+        }
+      } catch(e) {}
+      return val;
+    }
+    if (typeof val === "number" || typeof val === "boolean") return String(val);
+    try { return JSON.stringify(val); } catch(e) { return String(val); }
+  }
+
   function buildFormFromObject(o) {
     rowsEl.innerHTML = "";
-    Object.keys(o || {}).forEach(function(k){ addRow(k, JSON.stringify(o[k])); });
+    Object.keys(o || {}).forEach(function(k){ addRow(k, formatFormValue(o[k])); });
     if (!rowsEl.children.length) addRow("", "");
   }
 
@@ -2167,7 +2334,7 @@
   function schedule() {
     clearTimeout(timer);
     setStatus("running");
-    timer = setTimeout(run, 350);
+    timer = setTimeout(run, 1000);
   }
 
   async function run() {
@@ -2248,30 +2415,25 @@
   });
 
   function setupCollapsiblePanes() {
-    var panes = [
-      { id: "pane-input", toggleId: "toggle-input" },
-      { id: "pane-script", toggleId: "toggle-script" },
-      { id: "pane-output", toggleId: "toggle-output" }
-    ];
-    panes.forEach(function(item){
-      var paneEl = document.getElementById(item.id);
-      var toggleBtn = document.getElementById(item.toggleId);
-      if (!paneEl || !toggleBtn) return;
-      function togglePane(e) {
+    ["pane-input", "pane-script", "pane-output"].forEach(function(id){
+      var paneEl = document.getElementById(id);
+      if (!paneEl) return;
+      var head = paneEl.querySelector(".pane-head");
+      if (!head) return;
+      head.addEventListener("click", function(e){
         if (!isVertical()) return;
         if (e.target.closest("button:not(.btn-pane-toggle), select, input, .seg, a")) return;
         paneEl.classList.toggle("collapsed");
         setTimeout(refreshAllEditors, 50);
-      }
-      toggleBtn.addEventListener("click", togglePane);
-      var head = paneEl.querySelector(".pane-head");
-      if (head) head.addEventListener("click", togglePane);
+      });
     });
   }
 
   // Init layout, vars split, format buttons and theme
   applyTheme(currentTheme);
   updateLayoutMode();
+  updateVarsLayout();
+  setupVarsToggle();
   setupCollapsiblePanes();
   syncFormatButtonVisibility();
 
