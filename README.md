@@ -180,6 +180,33 @@ on a URL that never changes.
 docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml stop cloudflared
 ```
 
+#### Edge Rate Limiting (Cloudflare WAF)
+
+When exposing the playground publicly through Cloudflare, rate limiting on `/api/transform` can be enforced at Cloudflare's edge without needing an in-stack reverse proxy like Nginx.
+
+##### Step-by-Step Configuration:
+1. In the [Cloudflare Dashboard](https://dash.cloudflare.com/), select your zone/domain.
+2. Navigate to **Security** &rarr; **WAF** &rarr; **Rate limiting rules**.
+3. Click **Create rule**:
+   - **Rule Name:** `Rate Limit DataWeave Transformations`
+   - **If incoming requests match:**
+     - Click **Edit expression** and enter:
+       ```text
+       (http.host eq "dataweave-playground-pro.mradi.dev" and http.request.uri.path eq "/api/transform")
+       ```
+       *(Adjust the hostname to match your configured tunnel public hostname)*
+   - **Rate Limiting Criteria:**
+     - **Requests:** `3` *(or `2` for strict ~12 req/min; `4`–`5` for typing burst tolerance)*
+     - **Period:** `10 seconds` *(Cloudflare Free plan fixed window)*
+     - **Counting characteristics:** `IP source address`
+   - **Action:**
+     - **Choose Action:** `Block`
+     - **Response type / code:** `429 (Too Many Requests)`
+     - **Duration (Mitigation Timeout):** `10 seconds` *(Cloudflare Free plan fixed window)*
+4. Click **Deploy**.
+
+> **Note on Free Plan Windows:** Cloudflare's Free tier restricts rate limit counting windows and mitigation timeouts to a fixed 10-second period. Setting `3 requests per 10 seconds` provides an equivalent rate of ~18 requests per minute, absorbing fast user typing without locking users out for long periods.
+
 ---
 
 ### Option 5 — Deploy with Nginx Spike Guard, Rate Limiting & Subpath Routing (Optional)
