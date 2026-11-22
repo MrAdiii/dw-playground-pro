@@ -4322,6 +4322,23 @@
     // Initialize hover tooltips and inject doc styles
     injectDocStyles();
     setupHoverTooltips(edSc.cm);
+
+    // Dismiss doc flyout when autocomplete finishes, cursor moves, or user clicks away
+    edSc.cm.on("endCompletion", function() {
+      hideDocFlyout();
+    });
+
+    edSc.cm.on("cursorActivity", function(cm) {
+      if (!cm.state.completionActive && !document.querySelector(".CodeMirror-hints")) {
+        hideDocFlyout();
+      }
+    });
+
+    document.addEventListener("mousedown", function(e) {
+      if (!e.target.closest(".CodeMirror-hints") && !e.target.closest("#dw-doc-flyout")) {
+        hideDocFlyout();
+      }
+    });
   }
 
   global.DataWeaveAutocomplete = {

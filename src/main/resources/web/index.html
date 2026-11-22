@@ -1912,7 +1912,11 @@
   });
 
   document.getElementById("btn-copy-out").addEventListener("click", function(){
-    copyText(edOut.getValue(), "Output");
+    if (errbox && errbox.classList.contains("show")) {
+      copyText(errText ? errText.textContent : "", "Error");
+    } else {
+      copyText(edOut.getValue(), "Output");
+    }
   });
 
   // Copy & Paste Variables Handlers
@@ -2378,14 +2382,14 @@
   var pill = document.getElementById("status");
   var statusText = document.getElementById("status-text");
 
-  function setStatus(s, latency) {
+  function setStatus(s, latency, label) {
     pill.className = "pill " + (s || "");
     if (s === "running") {
       statusText.textContent = "Running…";
     } else if (s === "ok") {
       statusText.textContent = latency ? (latency + "ms · OK") : "OK";
     } else if (s === "error") {
-      statusText.textContent = latency ? (latency + "ms · Error") : "Error";
+      statusText.textContent = latency ? (latency + "ms · " + (label || "Error")) : (label || "Error");
     } else {
       statusText.textContent = "Ready";
     }
@@ -2396,16 +2400,23 @@
   var outErrBadge = document.getElementById("output-error-badge");
 
   function showOutput(t) {
+    clearTimeout(retryTimer);
     errbox.classList.remove("show");
-    if (outErrBadge) outErrBadge.style.display = "none";
+    if (outErrBadge) {
+      outErrBadge.style.display = "none";
+      outErrBadge.textContent = "Runtime Error";
+    }
     edOut.setMode(modeFor(outMime.value));
     edOut.setValue(t);
   }
 
-  function showError(t) {
+  function showError(t, badgeTitle) {
     errText.textContent = t;
     errbox.classList.add("show");
-    if (outErrBadge) outErrBadge.style.display = "inline-flex";
+    if (outErrBadge) {
+      outErrBadge.textContent = badgeTitle || "Runtime Error";
+      outErrBadge.style.display = "inline-flex";
+    }
   }
 
   // ==========================================
@@ -2442,7 +2453,7 @@
   // ==========================================
   // 10. TRANSFORMATION RUNNER & LIVE/MANUAL MODE
   // ==========================================
-  var timer = null, controller = null;
+  var timer = null, controller = null, retryTimer = null;
   var savedLiveMode = null;
   try {
     savedLiveMode = localStorage.getItem("dw_live_mode");
@@ -2473,6 +2484,7 @@
       }
       if (modeText) modeText.textContent = "manual";
       if (btnRun) btnRun.style.display = "inline-flex";
+      clearTimeout(retryTimer);
     }
     updateEngineFooterText();
     if (isLiveMode && triggerRun) {
@@ -2505,12 +2517,14 @@
   function schedule() {
     if (!isLiveMode) return;
     clearTimeout(timer);
+    clearTimeout(retryTimer);
     setStatus("running");
     timer = setTimeout(run, 1000);
   }
 
   async function run() {
     clearTimeout(timer);
+    clearTimeout(retryTimer);
     if (controller) controller.abort();
     controller = new AbortController();
     setStatus("running");
@@ -2536,8 +2550,17 @@
         showOutput(text);
         setStatus("ok", latency);
       } else if (res.status === 429) {
-        showError("⚠️ Rate limit reached (Spike guard active).\n\n" + text);
-        setStatus("error", latency);
+        showError("Rate limit exceeded. Please retry after some time.", "429 Too Many Requests");
+        if (isLiveMode) {
+          setStatus("error", latency, "429 (retrying in 10s…)");
+          retryTimer = setTimeout(function() {
+            if (isLiveMode) {
+              run();
+            }
+          }, 10000);
+        } else {
+          setStatus("error", latency, "429");
+        }
       } else {
         showError(text);
         setStatus("error", latency);
