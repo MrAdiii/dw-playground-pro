@@ -2594,6 +2594,8 @@
   edVars.setValue('{\n  "factor": 10\n}');
   buildFormFromObject({ factor: 10 });
   edSc.setValue('%dw 2.0\noutput application/json\n---\n{\n  greeting: payload.message,\n  count: sizeOf(payload.items),\n  scaled: payload.items map ((n) -> n * vars.factor)\n}');
+  showOutput('{\n  "greeting": "hello",\n  "count": 3,\n  "scaled": [\n    10,\n    20,\n    30\n  ]\n}');
+  setStatus("ok");
 
   edIn.onChange(schedule);
   edVars.onChange(schedule);
@@ -2649,7 +2651,6 @@
 
   setTimeout(function(){
     refreshAllEditors();
-    run();
   }, 100);
 })();
 </script>
