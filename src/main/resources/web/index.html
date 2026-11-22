@@ -2399,8 +2399,15 @@
   var errText = document.getElementById("err-text");
   var outErrBadge = document.getElementById("output-error-badge");
 
+  function clearRetry() {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
+  }
+
   function showOutput(t) {
-    clearTimeout(retryTimer);
+    clearRetry();
     errbox.classList.remove("show");
     if (outErrBadge) {
       outErrBadge.style.display = "none";
@@ -2484,7 +2491,7 @@
       }
       if (modeText) modeText.textContent = "manual";
       if (btnRun) btnRun.style.display = "inline-flex";
-      clearTimeout(retryTimer);
+      clearRetry();
     }
     updateEngineFooterText();
     if (isLiveMode && triggerRun) {
@@ -2517,14 +2524,14 @@
   function schedule() {
     if (!isLiveMode) return;
     clearTimeout(timer);
-    clearTimeout(retryTimer);
+    clearRetry();
     setStatus("running");
     timer = setTimeout(run, 1000);
   }
 
   async function run() {
     clearTimeout(timer);
-    clearTimeout(retryTimer);
+    clearRetry();
     if (controller) controller.abort();
     controller = new AbortController();
     setStatus("running");
@@ -2552,12 +2559,19 @@
       } else if (res.status === 429) {
         showError("Rate limit exceeded. Please retry after some time.", "429 Too Many Requests");
         if (isLiveMode) {
-          setStatus("error", latency, "429 (retrying in 10s…)");
-          retryTimer = setTimeout(function() {
-            if (isLiveMode) {
-              run();
+          var remaining = 10;
+          setStatus("error", latency, "429 (retrying in " + remaining + "s…)");
+          retryTimer = setInterval(function() {
+            remaining--;
+            if (remaining > 0) {
+              setStatus("error", latency, "429 (retrying in " + remaining + "s…)");
+            } else {
+              clearRetry();
+              if (isLiveMode) {
+                run();
+              }
             }
-          }, 10000);
+          }, 1000);
         } else {
           setStatus("error", latency, "429");
         }
